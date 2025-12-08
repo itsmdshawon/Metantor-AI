@@ -138,12 +138,21 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
                         Pending
                     </span>
                 )}
+                
                 {item.status === 'processing' && (
-                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-blue-950 border border-blue-800/60 text-blue-400 tracking-wider">
-                        <div className="w-2.5 h-2.5 border-[2px] border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                        PROCESSING
-                    </span>
+                    item.errorMsg ? (
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-amber-950/50 border border-amber-800/60 text-amber-400 tracking-wider animate-pulse whitespace-nowrap">
+                             <AlertCircle className="w-3 h-3" />
+                             {item.errorMsg.toUpperCase()}
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-blue-950 border border-blue-800/60 text-blue-400 tracking-wider">
+                            <div className="w-2.5 h-2.5 border-[2px] border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                            PROCESSING
+                        </span>
+                    )
                 )}
+
                 {item.status === 'complete' && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-emerald-950/50 border border-emerald-800/60 text-emerald-400 tracking-wider">
                         <Check className="w-3 h-3" /> SUCCESS

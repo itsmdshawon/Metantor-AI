@@ -16,12 +16,9 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore/lite'; 
 import { Loader2, Lock } from 'lucide-react';
 
-const MAX_AUTO_RETRIES = 5; 
-const MAX_FILE_RETRIES = 3; // Max retries for a single file before giving up
-const INITIAL_DELAY = 800;
-const MIN_DELAY = 200;
-
-// v1.3 Background Process Optimization
+const CONCURRENCY_LIMIT = 3; // Process 3 images simultaneously
+const RETRY_DELAY_MS = 1500; // Standard retry delay
+const RATE_LIMIT_DELAY_MS = 5000; // Delay when rate limit is hit
 
 const App: React.FC = () => {
     // --- AUTHENTICATION STATE ---
@@ -80,26 +77,25 @@ const App: React.FC = () => {
 
     const [files, setFiles] = useState<FileItem[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [shouldStop, setShouldStop] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     
-    // --- REFS FOR PROCESSING LOOP (Fixes Background Tab Issue) ---
+    // --- REFS FOR PROCESSING LOOP ---
     const filesRef = useRef<FileItem[]>([]);
     const isProcessingRef = useRef(false);
     const shouldStopRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const loopDelay = useRef(INITIAL_DELAY);
     const currentKeyIndex = useRef(0);
     const configRef = useRef(config);
     const apiKeysRef = useRef(apiKeys);
+    const pendingQueueRef = useRef<string[]>([]); // Stores IDs of files to process
 
     // Sync Refs with State
     useEffect(() => { filesRef.current = files; }, [files]);
     useEffect(() => { configRef.current = config; }, [config]);
     useEffect(() => { apiKeysRef.current = apiKeys; }, [apiKeys]);
 
-    const processedCount = files.filter(f => f.status === 'complete' || f.status === 'error').length;
+    const processedCount = files.filter(f => f.status === 'complete').length;
 
     // --- AUTH EFFECT ---
     useEffect(() => {
@@ -109,7 +105,6 @@ const App: React.FC = () => {
                 setVerifyingAccess(true);
                 const userRef = doc(db, "users", currentUser.uid);
                 
-                // One-time check instead of onSnapshot
                 try {
                     const docSnap = await getDoc(userRef);
                     if (docSnap.exists()) {
@@ -125,7 +120,6 @@ const App: React.FC = () => {
                         setIsUserActive(active);
                         setIsAdmin(admin);
                     } else {
-                        // Create doc if missing (Auto-Setup)
                         const isSuperAdmin = currentUser.email === 'admin@metantor.com';
                         await setDoc(userRef, {
                             email: currentUser.email,
@@ -201,7 +195,6 @@ const App: React.FC = () => {
     };
 
     const handleClear = () => {
-        setShouldStop(true);
         shouldStopRef.current = true;
         isProcessingRef.current = false;
         
@@ -209,10 +202,9 @@ const App: React.FC = () => {
         setFiles([]);
         setIsProcessing(false);
         setShowSuccessModal(false);
-        loopDelay.current = INITIAL_DELAY;
+        pendingQueueRef.current = [];
     };
 
-    // --- API KEY MANAGEMENT ---
     const handleAddKey = (key: string) => {
         setApiKeys(prev => [...prev, key]);
     };
@@ -221,59 +213,42 @@ const App: React.FC = () => {
         setApiKeys(prev => prev.filter((_, i) => i !== index));
     };
 
-    // --- ROBUST PROCESSING LOOP ---
-    const startProcessing = async () => {
-        if (apiKeysRef.current.length === 0) {
-            setIsKeyModalOpen(true);
-            return;
-        }
-        if (isProcessingRef.current) return;
+    // --- PARALLEL PROCESSING ENGINE ---
 
-        setIsProcessing(true);
-        setShouldStop(false);
-        isProcessingRef.current = true;
-        shouldStopRef.current = false;
-        loopDelay.current = INITIAL_DELAY;
+    // 1. Worker Function: Processes a single file ID with infinite retry
+    const processFileWorker = async (fileId: string) => {
+        // Find the file object (static reference)
+        const fileItem = filesRef.current.find(f => f.id === fileId);
+        if (!fileItem) return;
 
-        processQueue();
-    };
-
-    const processQueue = async () => {
-        while (isProcessingRef.current && !shouldStopRef.current) {
-            
-            // 1. Find next pending file from Ref (always fresh)
-            const currentFiles = filesRef.current;
-            const nextFile = currentFiles.find(f => f.status === 'pending');
-
-            // 2. If no pending files, check for retries or finish
-            if (!nextFile) {
-                const isComplete = currentFiles.every(f => f.status === 'complete' || f.status === 'error');
-                if (isComplete) {
-                    setIsProcessing(false);
-                    isProcessingRef.current = false;
-                    const hasSuccess = currentFiles.some(f => f.status === 'complete');
-                    if (hasSuccess) setShowSuccessModal(true);
-                    return;
-                }
-                await new Promise(r => setTimeout(r, 1000));
-                continue;
-            }
-
-            // 3. Mark as processing
-            setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'processing' } : f));
-            
-            // 4. Wait loop delay (Throttle)
-            await new Promise(r => setTimeout(r, loopDelay.current));
-
-            if (shouldStopRef.current) break;
-
+        let success = false;
+        let retries = 0;
+        
+        // Infinite loop until success or stop signal
+        while (!success && !shouldStopRef.current) {
             try {
+                // Get Key (Round Robin)
                 const keys = apiKeysRef.current;
+                if (keys.length === 0) throw new Error("No API Keys available");
+                
+                // Rotate key based on global counter
                 const apiKey = keys[currentKeyIndex.current % keys.length];
+                currentKeyIndex.current++; 
 
-                const base64 = await fileToBase64(nextFile.file);
-                let metadata = await generateMetadata(base64, nextFile.file.type, configRef.current, apiKey);
+                // Signal Processing (or Retrying)
+                setFiles(prev => prev.map(f => f.id === fileId ? { 
+                    ...f, 
+                    status: 'processing',
+                    errorMsg: retries > 0 ? `Retrying... (${retries})` : undefined
+                } : f));
 
+                // Prepare Data
+                const base64 = await fileToBase64(fileItem.file);
+                
+                // Call Gemini
+                let metadata = await generateMetadata(base64, fileItem.file.type, configRef.current, apiKey);
+
+                // Sanitize Response
                 if (metadata.title) metadata.title = cleanText(metadata.title);
                 if (metadata.description) metadata.description = cleanText(metadata.description);
                 if (metadata.keywords && Array.isArray(metadata.keywords)) {
@@ -283,46 +258,101 @@ const App: React.FC = () => {
                     }
                 }
 
-                setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'complete', metadata } : f));
-                
-                // Accelerate
-                loopDelay.current = Math.max(MIN_DELAY, loopDelay.current - 200);
+                // Update State on Success
+                setFiles(prev => prev.map(f => f.id === fileId ? { 
+                    ...f, 
+                    status: 'complete', 
+                    metadata,
+                    errorMsg: undefined,
+                    retryCount: retries 
+                } : f));
+                success = true;
 
-            } catch (err: any) {
-                console.error("Error processing:", err);
+            } catch (error: any) {
+                if (shouldStopRef.current) break;
                 
-                // Track retry attempts for this specific file
-                const currentRetry = nextFile.retryCount || 0;
+                retries++;
+                const isRateLimit = error.message?.includes('429') || 
+                                    error.message?.toLowerCase().includes('quota') ||
+                                    error.message?.toLowerCase().includes('resource exhausted');
                 
-                if (currentRetry < MAX_FILE_RETRIES) {
-                    // Failover logic for Quota errors or generic timeouts
-                    if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
-                        console.warn("Quota hit, rotating key...");
-                        currentKeyIndex.current += 1;
-                        loopDelay.current = Math.min(loopDelay.current + 2000, 10000); // Slow down
-                    } else {
-                        // For generic errors, just wait a bit
-                        loopDelay.current = Math.min(loopDelay.current + 1000, 5000);
-                    }
+                const delay = isRateLimit ? RATE_LIMIT_DELAY_MS : RETRY_DELAY_MS;
+                const statusMsg = isRateLimit ? "RATE LIMIT HIT! RETRYING..." : "Error occurred. Retrying...";
+                
+                console.warn(`Attempt failed for ${fileItem.file.name} (Retry ${retries}):`, error);
 
-                    // Retry: Set status back to pending but increment count
-                    setFiles(prev => prev.map(f => 
-                        f.id === nextFile.id 
-                            ? { ...f, status: 'pending', retryCount: currentRetry + 1 } 
-                            : f
-                    ));
-                    
-                    await new Promise(r => setTimeout(r, 1500)); // Breathing room
-                    continue; 
-                } else {
-                    // Max retries reached, fail permanently so we don't block the queue
-                    setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'error', errorMsg: err.message || "Failed after multiple attempts" } : f));
-                }
+                // Update UI to Signal the user
+                setFiles(prev => prev.map(f => f.id === fileId ? {
+                    ...f,
+                    status: 'processing', // Keep as processing so it doesn't fail
+                    retryCount: retries,
+                    errorMsg: statusMsg
+                } : f));
+                
+                // Wait before retrying (smart backoff)
+                await new Promise(r => setTimeout(r, delay));
             }
         }
-        
+    };
+
+    // 2. Queue Manager: Spawns workers
+    const processQueueManager = async () => {
+        const workers: Promise<void>[] = [];
+
+        // Loop while there are items in the queue and we haven't been stopped
+        while (pendingQueueRef.current.length > 0 && !shouldStopRef.current) {
+            
+            // If we have capacity for more workers
+            while (workers.length < CONCURRENCY_LIMIT && pendingQueueRef.current.length > 0) {
+                const nextId = pendingQueueRef.current.shift();
+                if (nextId) {
+                    // Spawn worker and remove from 'workers' array when done
+                    const workerPromise = processFileWorker(nextId).then(() => {
+                        workers.splice(workers.indexOf(workerPromise), 1);
+                    });
+                    workers.push(workerPromise);
+                }
+            }
+
+            // Wait for at least one worker to finish before loop checks again 
+            if (workers.length > 0) {
+                await Promise.race(workers);
+            } else {
+                break; // No workers and queue empty
+            }
+        }
+
+        // Wait for remaining workers to finish
+        await Promise.all(workers);
+    };
+
+    // 3. Start Trigger
+    const startProcessing = async () => {
+        if (apiKeysRef.current.length === 0) {
+            setIsKeyModalOpen(true);
+            return;
+        }
+        if (isProcessingRef.current) return;
+
+        setIsProcessing(true);
+        shouldStopRef.current = false;
+        isProcessingRef.current = true;
+
+        // Initialize Queue with all pending files
+        const pendingFiles = filesRef.current.filter(f => f.status === 'pending');
+        pendingQueueRef.current = pendingFiles.map(f => f.id);
+
+        await processQueueManager();
+
         setIsProcessing(false);
         isProcessingRef.current = false;
+
+        // Check if actually finished everything successfully
+        const hasSomeComplete = filesRef.current.some(f => f.status === 'complete');
+        
+        if (hasSomeComplete && !shouldStopRef.current) {
+            setShowSuccessModal(true);
+        }
     };
 
     const handleExportCsv = () => {
@@ -429,8 +459,10 @@ const App: React.FC = () => {
                         <div className="text-slate-400 font-medium flex items-center gap-2.5">
                             {files.length > 0 ? (
                                 <>
-                                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
-                                    <span className="text-blue-100">{files.length} images queued</span>
+                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)] ${isProcessing ? 'bg-yellow-400 animate-pulse' : 'bg-blue-500'}`}></div>
+                                    <span className="text-blue-100">
+                                        {isProcessing ? 'Processing...' : `${files.length} images loaded`}
+                                    </span>
                                 </>
                             ) : (
                                 <>
@@ -440,9 +472,9 @@ const App: React.FC = () => {
                             )}
                         </div>
                         
-                        {isProcessing && files.length > 0 && (
+                        {files.length > 0 && (
                             <div className="flex items-center gap-5 animate-fadeIn">
-                                <span className="text-slate-400 font-mono hidden sm:inline">{processedCount}/{files.length}</span>
+                                <span className="text-slate-400 font-mono hidden sm:inline">{processedCount}/{files.length} Completed</span>
                                 <div className="w-20 sm:w-40 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                                     <div 
                                         className="h-full bg-blue-600 transition-all duration-300 ease-out shadow-lg shadow-blue-500/50"
