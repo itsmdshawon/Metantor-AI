@@ -67,12 +67,13 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
         if (metadata.adobe_category) {
             badges.push(<div key="adobe" className="text-[10px] text-red-400 bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50 inline-block mr-1 mb-1" title="Adobe Category">Ad: {metadata.adobe_category}</div>);
         }
+        
+        // Shutterstock: Combined
         if (metadata.shutterstock_main) {
-            badges.push(<div key="ss1" className="text-[10px] text-red-400 bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50 inline-block mr-1 mb-1" title="Shutterstock Main">SS1: {metadata.shutterstock_main}</div>);
+            const combined = [metadata.shutterstock_main, metadata.shutterstock_optional].filter(Boolean).join(', ');
+            badges.push(<div key="ss" className="text-[10px] text-red-400 bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50 inline-block mr-1 mb-1" title="Shutterstock Categories">SS: {combined}</div>);
         }
-        if (metadata.shutterstock_optional) {
-            badges.push(<div key="ss2" className="text-[10px] text-red-400/70 bg-red-950/20 px-2 py-0.5 rounded border border-red-900/30 inline-block mr-1 mb-1" title="Shutterstock Optional">SS2: {metadata.shutterstock_optional}</div>);
-        }
+        
         if (metadata.vectorstock_primary) {
             badges.push(<div key="vs1" className="text-[10px] text-amber-400 bg-amber-950/30 px-2 py-0.5 rounded border border-amber-900/50 inline-block mr-1 mb-1" title="VectorStock Primary">VS1: {metadata.vectorstock_primary}</div>);
         }

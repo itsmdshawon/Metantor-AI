@@ -45,16 +45,18 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
             ].join(',');
         });
     } else if (platform === 'Shutterstock') {
-        // Updated headers for Shutterstock as requested
-        headers = ['Filename', 'Description', 'Keywords', 'Main Category', 'Optional Category', 'Editorial', 'Mature content', 'illustration'];
+        // Combined Categories into one column
+        headers = ['Filename', 'Description', 'Keywords', 'Categories', 'Editorial', 'Mature content', 'illustration'];
         rows = completed.map(item => {
             const m = item.metadata!;
+            // Combine main and optional with comma
+            const categories = [m.shutterstock_main, m.shutterstock_optional].filter(Boolean).join(', ');
+            
             return [
                 escapeCsv(getFilename(item.file.name, extensionMode)),
                 escapeCsv(m.description),
                 escapeCsv((m.keywords || []).join(', ')),
-                escapeCsv(m.shutterstock_main),
-                escapeCsv(m.shutterstock_optional),
+                escapeCsv(categories), // Combined Categories
                 '"no"', // Editorial
                 '"no"', // Mature content
                 '"yes"' // illustration

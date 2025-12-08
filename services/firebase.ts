@@ -1,7 +1,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore/lite";
 
 // PASTE YOUR FIREBASE CONFIG KEYS HERE FROM FIREBASE CONSOLE
 const firebaseConfig = {

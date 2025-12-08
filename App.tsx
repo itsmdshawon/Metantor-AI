@@ -13,7 +13,7 @@ import { fileToBase64, generateCsv, generateReport, cleanText } from './utils/he
 import { generateMetadata } from './services/geminiService';
 import { auth, db } from './services/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore'; 
+import { doc, setDoc, getDoc } from 'firebase/firestore/lite'; 
 import { Loader2, Lock } from 'lucide-react';
 
 const MAX_AUTO_RETRIES = 5; 
@@ -101,7 +101,7 @@ const App: React.FC = () => {
 
     const processedCount = files.filter(f => f.status === 'complete' || f.status === 'error').length;
 
-    // --- AUTH EFFECT (REAL-TIME LISTENER) ---
+    // --- AUTH EFFECT ---
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
@@ -109,8 +109,9 @@ const App: React.FC = () => {
                 setVerifyingAccess(true);
                 const userRef = doc(db, "users", currentUser.uid);
                 
-                // Real-time listener for "Instant Kick"
-                const unsubscribeSnapshot = onSnapshot(userRef, async (docSnap) => {
+                // One-time check instead of onSnapshot
+                try {
+                    const docSnap = await getDoc(userRef);
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         let active = data.isActive === true;
@@ -125,22 +126,22 @@ const App: React.FC = () => {
                         setIsAdmin(admin);
                     } else {
                         // Create doc if missing (Auto-Setup)
+                        const isSuperAdmin = currentUser.email === 'admin@metantor.com';
                         await setDoc(userRef, {
                             email: currentUser.email,
-                            isActive: false, 
-                            isAdmin: false,
+                            isActive: isSuperAdmin, 
+                            isAdmin: isSuperAdmin,
                             createdAt: new Date().toISOString()
                         });
+                        setIsUserActive(isSuperAdmin);
+                        setIsAdmin(isSuperAdmin);
                     }
+                } catch (error) {
+                    console.error("Error fetching user profile:", error);
+                } finally {
                     setVerifyingAccess(false);
                     setAuthLoading(false);
-                }, (error) => {
-                    console.error("Snapshot error:", error);
-                    setVerifyingAccess(false);
-                    setAuthLoading(false);
-                });
-
-                return () => unsubscribeSnapshot();
+                }
             } else {
                 setIsUserActive(false);
                 setIsAdmin(false);
