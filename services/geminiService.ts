@@ -125,8 +125,13 @@ export async function generateMetadata(
     Return strict JSON format: ${jsonStructure}
     `;
 
+    // Implement Timeout to prevent freezing on large prompts
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timed out after 60 seconds")), 60000);
+    });
+
     try {
-        const response = await ai.models.generateContent({
+        const responsePromise = ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: {
                 role: "user",
@@ -142,9 +147,13 @@ export async function generateMetadata(
             },
             config: {
                 responseMimeType: "application/json",
-                temperature: 0.3
+                temperature: 0.3,
+                maxOutputTokens: 8192 // Increased to handle 50+ keywords
             }
         });
+        
+        // Race against timeout
+        const response: any = await Promise.race([responsePromise, timeoutPromise]);
         
         const text = response.text;
         if (!text) throw new Error("Empty response from AI");

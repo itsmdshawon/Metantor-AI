@@ -13,12 +13,15 @@ import { fileToBase64, generateCsv, generateReport, cleanText } from './utils/he
 import { generateMetadata } from './services/geminiService';
 import { auth, db } from './services/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore'; // Added onSnapshot
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore'; 
 import { Loader2, Lock } from 'lucide-react';
 
-const MAX_AUTO_RETRIES = 5; // Increased resilience
+const MAX_AUTO_RETRIES = 5; 
+const MAX_FILE_RETRIES = 3; // Max retries for a single file before giving up
 const INITIAL_DELAY = 800;
 const MIN_DELAY = 200;
+
+// v1.3 Background Process Optimization
 
 const App: React.FC = () => {
     // --- AUTHENTICATION STATE ---
@@ -160,7 +163,8 @@ const App: React.FC = () => {
             id: crypto.randomUUID(),
             file,
             previewUrl: URL.createObjectURL(file),
-            status: 'pending'
+            status: 'pending',
+            retryCount: 0
         }));
 
         setFiles(prev => {
@@ -182,7 +186,8 @@ const App: React.FC = () => {
                 id: crypto.randomUUID(),
                 file,
                 previewUrl: URL.createObjectURL(file),
-                status: 'pending'
+                status: 'pending',
+                retryCount: 0
             }));
 
             setFiles(prev => {
@@ -209,7 +214,6 @@ const App: React.FC = () => {
     // --- API KEY MANAGEMENT ---
     const handleAddKey = (key: string) => {
         setApiKeys(prev => [...prev, key]);
-        // FIXED: Removed logic that auto-closed the modal
     };
 
     const handleRemoveKey = (index: number) => {
@@ -234,7 +238,6 @@ const App: React.FC = () => {
     };
 
     const processQueue = async () => {
-        // While processing is active and we haven't been told to stop
         while (isProcessingRef.current && !shouldStopRef.current) {
             
             // 1. Find next pending file from Ref (always fresh)
@@ -243,7 +246,6 @@ const App: React.FC = () => {
 
             // 2. If no pending files, check for retries or finish
             if (!nextFile) {
-                // Check if any errors need retrying? (Simplified: Just stop if all done)
                 const isComplete = currentFiles.every(f => f.status === 'complete' || f.status === 'error');
                 if (isComplete) {
                     setIsProcessing(false);
@@ -252,7 +254,6 @@ const App: React.FC = () => {
                     if (hasSuccess) setShowSuccessModal(true);
                     return;
                 }
-                // Wait a bit and check again (rare case)
                 await new Promise(r => setTimeout(r, 1000));
                 continue;
             }
@@ -260,21 +261,18 @@ const App: React.FC = () => {
             // 3. Mark as processing
             setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'processing' } : f));
             
-            // 4. Wait loop delay
+            // 4. Wait loop delay (Throttle)
             await new Promise(r => setTimeout(r, loopDelay.current));
 
             if (shouldStopRef.current) break;
 
             try {
-                // 5. Get current API key
                 const keys = apiKeysRef.current;
                 const apiKey = keys[currentKeyIndex.current % keys.length];
 
-                // 6. Generate
                 const base64 = await fileToBase64(nextFile.file);
                 let metadata = await generateMetadata(base64, nextFile.file.type, configRef.current, apiKey);
 
-                // Clean data
                 if (metadata.title) metadata.title = cleanText(metadata.title);
                 if (metadata.description) metadata.description = cleanText(metadata.description);
                 if (metadata.keywords && Array.isArray(metadata.keywords)) {
@@ -284,7 +282,6 @@ const App: React.FC = () => {
                     }
                 }
 
-                // 7. Success Update
                 setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'complete', metadata } : f));
                 
                 // Accelerate
@@ -293,28 +290,33 @@ const App: React.FC = () => {
             } catch (err: any) {
                 console.error("Error processing:", err);
                 
-                // 8. Error Handling & Failover
-                if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
-                    console.warn("Quota hit, rotating key...");
-                    currentKeyIndex.current += 1;
-                    loopDelay.current = Math.min(loopDelay.current + 2000, 10000);
-                    
-                    // Silent Retry Logic: Set back to pending so loop picks it up again with new key
-                    // We attach a retry count to the file implicitly via internal logic or just let it fail once
-                    // For now, let's set it to 'pending' to retry immediately with new key, but prevent infinite loops
-                    // Simple approach: Mark error, but user can click generate again.
-                    // Better approach requested: "Hidden auto generate".
-                    
-                    // Let's implement a simple internal retry by NOT marking it error immediately if it's a 429
-                    // Wait 2 seconds then continue loop (nextFile is still pending effectively if we reset it)
-                    setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'pending' } : f));
-                    await new Promise(r => setTimeout(r, 2000));
-                    continue; 
-                } 
+                // Track retry attempts for this specific file
+                const currentRetry = nextFile.retryCount || 0;
                 
-                // Generic Error
-                loopDelay.current = Math.min(loopDelay.current + 1000, 5000);
-                setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'error', errorMsg: err.message } : f));
+                if (currentRetry < MAX_FILE_RETRIES) {
+                    // Failover logic for Quota errors or generic timeouts
+                    if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
+                        console.warn("Quota hit, rotating key...");
+                        currentKeyIndex.current += 1;
+                        loopDelay.current = Math.min(loopDelay.current + 2000, 10000); // Slow down
+                    } else {
+                        // For generic errors, just wait a bit
+                        loopDelay.current = Math.min(loopDelay.current + 1000, 5000);
+                    }
+
+                    // Retry: Set status back to pending but increment count
+                    setFiles(prev => prev.map(f => 
+                        f.id === nextFile.id 
+                            ? { ...f, status: 'pending', retryCount: currentRetry + 1 } 
+                            : f
+                    ));
+                    
+                    await new Promise(r => setTimeout(r, 1500)); // Breathing room
+                    continue; 
+                } else {
+                    // Max retries reached, fail permanently so we don't block the queue
+                    setFiles(prev => prev.map(f => f.id === nextFile.id ? { ...f, status: 'error', errorMsg: err.message || "Failed after multiple attempts" } : f));
+                }
             }
         }
         
@@ -345,8 +347,6 @@ const App: React.FC = () => {
         a.click();
         document.body.removeChild(a);
     };
-
-    // --- RENDER GATES ---
 
     if (authLoading || (user && verifyingAccess)) {
         return (

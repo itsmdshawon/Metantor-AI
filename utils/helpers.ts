@@ -1,3 +1,4 @@
+
 import { FileItem, Metadata, Platform } from '../types';
 
 export function cleanText(text: string): string {
@@ -44,7 +45,8 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
             ].join(',');
         });
     } else if (platform === 'Shutterstock') {
-        headers = ['Filename', 'Description', 'Keywords', 'Main Category', 'Optional Category'];
+        // Updated headers for Shutterstock as requested
+        headers = ['Filename', 'Description', 'Keywords', 'Main Category', 'Optional Category', 'Editorial', 'Mature content', 'illustration'];
         rows = completed.map(item => {
             const m = item.metadata!;
             return [
@@ -52,7 +54,10 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
                 escapeCsv(m.description),
                 escapeCsv((m.keywords || []).join(', ')),
                 escapeCsv(m.shutterstock_main),
-                escapeCsv(m.shutterstock_optional)
+                escapeCsv(m.shutterstock_optional),
+                '"no"', // Editorial
+                '"no"', // Mature content
+                '"yes"' // illustration
             ].join(',');
         });
     } else if (platform === 'Vecteezy') {

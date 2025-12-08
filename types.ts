@@ -1,3 +1,4 @@
+
 export type Platform = 'General' | 'Adobe Stock' | 'Shutterstock' | 'Vecteezy' | 'VectorStock';
 
 export interface Metadata {
@@ -25,6 +26,7 @@ export interface FileItem {
     status: 'pending' | 'processing' | 'complete' | 'error';
     metadata?: Metadata;
     errorMsg?: string;
+    retryCount?: number; // Added to track retries per file
 }
 
 export interface AppConfig {
