@@ -149,8 +149,9 @@ async function callGroq(
     prompt: string
 ): Promise<Metadata> {
     
-    // NOTE: Llama 3.2 Vision on Groq does NOT support response_format: { type: "json_object" } reliably yet.
-    // We remove it to prevent 400 Bad Request errors and rely on the prompt instructions + regex parsing.
+    // MODEL UPDATE: 'llama-3.2-90b-vision-preview' is decommissioned.
+    // Using 'llama-3.2-11b-vision-preview' which is currently active.
+    const MODEL_ID = "llama-3.2-11b-vision-preview";
     
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -159,7 +160,7 @@ async function callGroq(
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "llama-3.2-90b-vision-preview",
+            model: MODEL_ID,
             messages: [
                 {
                     role: "system",
@@ -168,7 +169,7 @@ async function callGroq(
                 {
                     role: "user",
                     content: [
-                        { type: "text", text: "Analyze this image and generate the required JSON metadata." },
+                        { type: "text", text: "Analyze this image and generate the required JSON metadata. Return ONLY JSON." },
                         {
                             type: "image_url",
                             image_url: {
@@ -179,20 +180,37 @@ async function callGroq(
                 }
             ],
             temperature: 0.2,
-            max_tokens: 4096 // Increased for safety
+            max_tokens: 3000 // Safe limit for 11b model
         })
     });
 
     if (!response.ok) {
         const errorText = await response.text();
+        let errorMessage = `Groq Error (${response.status})`;
+        
+        try {
+            // Try to parse detailed error from Groq JSON
+            const errJson = JSON.parse(errorText);
+            if (errJson.error && errJson.error.message) {
+                errorMessage = errJson.error.message;
+            } else if (errJson.error && errJson.error.code) {
+                errorMessage = `${errJson.error.code}: ${errJson.error.message || ''}`;
+            }
+        } catch(e) {
+            errorMessage = errorText;
+        }
+
         if (response.status === 429) {
             throw new Error(`429: Rate Limit Exceeded`);
         }
-        // Throw with status code so App.tsx can detect fatal errors
-        throw new Error(`${response.status}: ${errorText}`);
+        
+        throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error("Invalid response format from Groq");
+    }
     return processResponse(data.choices[0].message.content, config);
 }
 

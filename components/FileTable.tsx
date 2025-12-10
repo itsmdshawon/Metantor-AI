@@ -40,7 +40,7 @@ const FileTable: React.FC<FileTableProps> = ({ files, platform, onPreview }) => 
                                     <th className="p-5 text-[11px] font-bold text-slate-500 uppercase tracking-widest">Description</th>
                                     <th className="p-5 text-[11px] font-bold text-slate-500 uppercase tracking-widest w-64">Keywords</th>
                                     <th className="p-5 text-[11px] font-bold text-slate-500 uppercase tracking-widest w-48">Categories</th>
-                                    <th className="p-5 pr-6 text-[11px] font-bold text-slate-500 uppercase tracking-widest w-32 text-right">Status</th>
+                                    <th className="p-5 pr-6 text-[11px] font-bold text-slate-500 uppercase tracking-widest w-40 text-right">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800/60 text-sm">
@@ -140,10 +140,12 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
                 )}
                 
                 {item.status === 'processing' && (
-                    item.errorMsg ? (
-                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-amber-950/50 border border-amber-800/60 text-amber-400 tracking-wider animate-pulse whitespace-nowrap">
+                    item.errorMsg && !item.errorMsg.includes('Retrying') ? (
+                       // It's processing but probably failing or in a weird state, usually caught below by 'error' status, 
+                       // but if we are in retry loop:
+                       <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-amber-950/50 border border-amber-800/60 text-amber-400 tracking-wider animate-pulse whitespace-nowrap">
                              <AlertCircle className="w-3 h-3" />
-                             {item.errorMsg.toUpperCase()}
+                             RETRYING...
                         </span>
                     ) : (
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-blue-950 border border-blue-800/60 text-blue-400 tracking-wider">
@@ -159,9 +161,16 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
                     </span>
                 )}
                 {item.status === 'error' && (
-                    <span title={item.errorMsg} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-red-950/50 border border-red-800/60 text-red-400 tracking-wider cursor-help">
-                        <AlertCircle className="w-3 h-3" /> ERROR
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-red-950/50 border border-red-800/60 text-red-400 tracking-wider cursor-help">
+                            <AlertCircle className="w-3 h-3" /> ERROR
+                        </span>
+                        {item.errorMsg && (
+                            <span className="text-[10px] text-red-500 max-w-[120px] truncate text-right" title={item.errorMsg}>
+                                {item.errorMsg.replace('Google GenAI Error:', '').replace('Groq Error', '')}
+                            </span>
+                        )}
+                    </div>
                 )}
             </td>
         </tr>
