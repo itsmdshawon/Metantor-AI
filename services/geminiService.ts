@@ -153,65 +153,80 @@ async function callGroq(
     // Using 'llama-3.2-11b-vision-preview' which is currently active.
     const MODEL_ID = "llama-3.2-11b-vision-preview";
     
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            model: MODEL_ID,
-            messages: [
-                {
-                    role: "system",
-                    content: prompt // Pass strict rules as system prompt
-                },
-                {
-                    role: "user",
-                    content: [
-                        { type: "text", text: "Analyze this image and generate the required JSON metadata. Return ONLY JSON." },
-                        {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:${mimeType};base64,${base64Image}`
+    // Add Timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: MODEL_ID,
+                messages: [
+                    {
+                        role: "system",
+                        content: prompt // Pass strict rules as system prompt
+                    },
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: "Analyze this image and generate the required JSON metadata. Return ONLY JSON." },
+                            {
+                                type: "image_url",
+                                image_url: {
+                                    url: `data:${mimeType};base64,${base64Image}`
+                                }
                             }
-                        }
-                    ]
+                        ]
+                    }
+                ],
+                temperature: 0.2,
+                max_completion_tokens: 3000 // Correct parameter for Groq
+            }),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = `Groq Error (${response.status})`;
+            
+            try {
+                // Try to parse detailed error from Groq JSON
+                const errJson = JSON.parse(errorText);
+                if (errJson.error && errJson.error.message) {
+                    errorMessage = errJson.error.message;
+                } else if (errJson.error && errJson.error.code) {
+                    errorMessage = `${errJson.error.code}: ${errJson.error.message || ''}`;
                 }
-            ],
-            temperature: 0.2,
-            max_completion_tokens: 3000 // Correct parameter for Groq
-        })
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = `Groq Error (${response.status})`;
-        
-        try {
-            // Try to parse detailed error from Groq JSON
-            const errJson = JSON.parse(errorText);
-            if (errJson.error && errJson.error.message) {
-                errorMessage = errJson.error.message;
-            } else if (errJson.error && errJson.error.code) {
-                errorMessage = `${errJson.error.code}: ${errJson.error.message || ''}`;
+            } catch(e) {
+                errorMessage = errorText;
             }
-        } catch(e) {
-            errorMessage = errorText;
+
+            if (response.status === 429) {
+                throw new Error(`429: Rate Limit Exceeded`);
+            }
+            
+            throw new Error(errorMessage);
         }
 
-        if (response.status === 429) {
-            throw new Error(`429: Rate Limit Exceeded`);
+        const data = await response.json();
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error("Invalid response format from Groq");
         }
-        
-        throw new Error(errorMessage);
-    }
+        return processResponse(data.choices[0].message.content, config);
 
-    const data = await response.json();
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error("Invalid response format from Groq");
+    } catch (error: any) {
+        if (error.name === 'AbortError') {
+            throw new Error("Request timed out after 60s");
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
     }
-    return processResponse(data.choices[0].message.content, config);
 }
 
 // --- GEMINI API IMPLEMENTATION ---

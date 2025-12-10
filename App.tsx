@@ -297,7 +297,16 @@ const App: React.FC = () => {
                 retries++;
                 
                 const delay = isRateLimit ? RATE_LIMIT_DELAY_MS : RETRY_DELAY_MS;
-                const statusMsg = isRateLimit ? "RATE LIMIT HIT! RETRYING..." : "Error occurred. Retrying...";
+                
+                // Extract brief error code/message for the UI
+                let shortError = "Error";
+                if (errorStr.includes('503')) shortError = "503 Service Unavailable";
+                else if (errorStr.includes('500')) shortError = "500 Server Error";
+                else if (errorStr.includes('timeout')) shortError = "Timeout";
+                else if (isRateLimit) shortError = "429 Rate Limit";
+                else if (error.message) shortError = error.message.substring(0, 20) + "...";
+
+                const statusMsg = `${shortError}. Retrying...`;
                 
                 console.warn(`Attempt failed for ${fileItem.file.name} (Retry ${retries}):`, error);
 

@@ -140,12 +140,10 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
                 )}
                 
                 {item.status === 'processing' && (
-                    item.errorMsg && !item.errorMsg.includes('Retrying') ? (
-                       // It's processing but probably failing or in a weird state, usually caught below by 'error' status, 
-                       // but if we are in retry loop:
+                    item.errorMsg ? (
                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-amber-950/50 border border-amber-800/60 text-amber-400 tracking-wider animate-pulse whitespace-nowrap">
                              <AlertCircle className="w-3 h-3" />
-                             RETRYING...
+                             {item.errorMsg.includes('Retrying') ? item.errorMsg : 'RETRYING...'}
                         </span>
                     ) : (
                         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-[10px] font-bold bg-blue-950 border border-blue-800/60 text-blue-400 tracking-wider">
