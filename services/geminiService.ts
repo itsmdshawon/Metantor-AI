@@ -149,8 +149,9 @@ async function callGroq(
     prompt: string
 ): Promise<Metadata> {
     
-    // We must use a Vision model for image analysis.
-    // Llama-3.2-90b-vision-preview is the most capable option on Groq.
+    // NOTE: Llama 3.2 Vision on Groq does NOT support response_format: { type: "json_object" } reliably yet.
+    // We remove it to prevent 400 Bad Request errors and rely on the prompt instructions + regex parsing.
+    
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -161,9 +162,13 @@ async function callGroq(
             model: "llama-3.2-90b-vision-preview",
             messages: [
                 {
+                    role: "system",
+                    content: prompt // Pass strict rules as system prompt
+                },
+                {
                     role: "user",
                     content: [
-                        { type: "text", text: prompt },
+                        { type: "text", text: "Analyze this image and generate the required JSON metadata." },
                         {
                             type: "image_url",
                             image_url: {
@@ -174,8 +179,7 @@ async function callGroq(
                 }
             ],
             temperature: 0.2,
-            max_tokens: 2048,
-            response_format: { type: "json_object" }
+            max_tokens: 4096 // Increased for safety
         })
     });
 
@@ -184,7 +188,8 @@ async function callGroq(
         if (response.status === 429) {
             throw new Error(`429: Rate Limit Exceeded`);
         }
-        throw new Error(`Groq API Error (${response.status}): ${errorText}`);
+        // Throw with status code so App.tsx can detect fatal errors
+        throw new Error(`${response.status}: ${errorText}`);
     }
 
     const data = await response.json();

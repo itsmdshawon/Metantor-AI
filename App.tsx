@@ -245,7 +245,7 @@ const App: React.FC = () => {
                 // Prepare Data
                 const base64 = await fileToBase64(fileItem.file);
                 
-                // Call Gemini
+                // Call AI Service
                 let metadata = await generateMetadata(base64, fileItem.file.type, configRef.current, apiKey);
 
                 // Sanitize Response
@@ -271,10 +271,29 @@ const App: React.FC = () => {
             } catch (error: any) {
                 if (shouldStopRef.current) break;
                 
+                const errorStr = error.toString().toLowerCase();
+                const isRateLimit = errorStr.includes('429') || 
+                                    errorStr.includes('quota') ||
+                                    errorStr.includes('resource exhausted');
+                
+                // Fatal errors that shouldn't be retried
+                const isFatal = errorStr.includes('400') || 
+                                errorStr.includes('401') || 
+                                errorStr.includes('403') ||
+                                errorStr.includes('invalid') ||
+                                errorStr.includes('api key');
+
+                if (isFatal) {
+                     setFiles(prev => prev.map(f => f.id === fileId ? { 
+                        ...f, 
+                        status: 'error', 
+                        errorMsg: error.message ? error.message.substring(0, 40) : "Fatal Error",
+                        retryCount: retries 
+                    } : f));
+                    break; // Stop retrying this file
+                }
+
                 retries++;
-                const isRateLimit = error.message?.includes('429') || 
-                                    error.message?.toLowerCase().includes('quota') ||
-                                    error.message?.toLowerCase().includes('resource exhausted');
                 
                 const delay = isRateLimit ? RATE_LIMIT_DELAY_MS : RETRY_DELAY_MS;
                 const statusMsg = isRateLimit ? "RATE LIMIT HIT! RETRYING..." : "Error occurred. Retrying...";
@@ -284,7 +303,7 @@ const App: React.FC = () => {
                 // Update UI to Signal the user
                 setFiles(prev => prev.map(f => f.id === fileId ? {
                     ...f,
-                    status: 'processing', // Keep as processing so it doesn't fail
+                    status: 'processing', // Keep as processing so it doesn't fail immediately
                     retryCount: retries,
                     errorMsg: statusMsg
                 } : f));
