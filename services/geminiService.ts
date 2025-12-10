@@ -180,7 +180,7 @@ async function callGroq(
                 }
             ],
             temperature: 0.2,
-            max_tokens: 3000 // Safe limit for 11b model
+            max_completion_tokens: 3000 // Correct parameter for Groq
         })
     });
 

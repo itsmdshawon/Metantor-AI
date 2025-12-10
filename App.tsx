@@ -281,13 +281,14 @@ const App: React.FC = () => {
                                 errorStr.includes('401') || 
                                 errorStr.includes('403') ||
                                 errorStr.includes('invalid') ||
+                                errorStr.includes('model_decommissioned') ||
                                 errorStr.includes('api key');
 
                 if (isFatal) {
                      setFiles(prev => prev.map(f => f.id === fileId ? { 
                         ...f, 
                         status: 'error', 
-                        errorMsg: error.message ? error.message.substring(0, 40) : "Fatal Error",
+                        errorMsg: error.message ? error.message.substring(0, 50) : "Fatal Error",
                         retryCount: retries 
                     } : f));
                     break; // Stop retrying this file
