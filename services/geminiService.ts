@@ -72,8 +72,8 @@ function getSystemPrompt(config: AppConfig): string {
 
     return `
     ROLE: Expert Stock Photography Metadata Specialist.
-    SPECIALTY: Continuous One-Line Art, Vector Illustrations, and Minimalist Designs.
-    TASK: Generate high-ranking, search-optimized metadata in the specific "Microstock Stacking" style.
+    SPECIALTY: High-End Stock Content (Photos, Vectors, Illustrations, Line Art).
+    TASK: Generate high-ranking, search-optimized metadata using the "Microstock Stacking" technique for ALL images.
 
     *** STRICT SAFETY RULES (NO REJECTIONS) ***
     1. NO PROMOTIONAL LANGUAGE. 
@@ -81,27 +81,30 @@ function getSystemPrompt(config: AppConfig): string {
     2. NO FORMAT REFERENCES AS SUBJECT.
        - The platform knows it's a file. Focus on visual description.
 
-    *** CRITICAL FORMATTING RULES ***
+    *** CRITICAL FORMATTING RULES (ALL IMAGES) ***
     1. NO PERIOD AT THE END. Never put a full stop (.) at the very end of the Title or Description.
     2. INTERNAL PUNCTUATION IS REQUIRED. Use periods (.) to separate distinct ideas/keywords within the text.
        - Format: "Idea one. Idea two. Idea three" (No final dot)
 
-    *** WRITING STYLE (MICROSTOCK STACKING) ***
+    *** WRITING STYLE (MICROSTOCK STACKING) - APPLY TO ALL UPLOADS ***
     1. Title (~${config.titleLen} words): 
+       - Structure: [Main Subject]. [Specific Style/Technique]. [Context/Usage].
        - Style: Fragmented sentences separated by dots.
-       - Content: [Main Subject]. [Specific Style/Technique]. [Context/Usage].
+       - EXAMPLE (Photo): "Smiling business woman holding tablet. Portrait in modern office. Corporate executive lifestyle"
+       - EXAMPLE (Line Art): "One line drawing Speech bubble vector. Communication chat messenger single line vector linear icon"
        - IF ONE LINE ART: Use keywords like "continuous line drawing", "single line", "linear", "outline", "one line".
-       - Example 1: "Paper plane flying up connected with light bulb in one continuous line drawing. Airplane in outline style. Startup business idea"
-       - Example 2: "One line drawing Speech bubble vector. Communication chat messenger single line vector linear icon"
     
     2. Description (~${config.descLen} words): 
+       - Structure: [Detailed Subject Action]. [Artistic Style/Lighting details]. [Visual Context/Background].
        - Style: Descriptive sentences separated by dots.
-       - Content: [Detailed Subject Action]. [Artistic Style details]. [Visual Context/Background].
-       - Example: "Poppy flowers in continuous line art drawing style. Doodle floral border with two flowers blooming. Minimalist black linear design isolated on white background"
+       - EXAMPLE (Photo): "Senior man jogging in the park during sunrise. Backlight warm lighting. Active healthy retirement concept"
+       - EXAMPLE (Line Art): "Poppy flowers in continuous line art drawing style. Doodle floral border with two flowers blooming. Minimalist black linear design isolated on white background"
 
     *** KEYWORD RULES ***
     1. SINGLE WORDS ONLY. Split phrases (e.g., "line art" -> "line", "art").
-    2. INCLUDE STYLE TAGS. If it is line art, always include: "continuous", "line", "one", "single", "drawing", "linear", "outline", "vector".
+    2. INCLUDE STYLE TAGS.
+       - If Line Art: "continuous", "line", "one", "single", "linear", "outline".
+       - If Photo: "photography", "shot", "color", "outdoor", "indoor" (if relevant).
     3. RELEVANCE. Only include tags that are visually present.
 
     ${promptExtras}
