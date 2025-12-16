@@ -83,25 +83,28 @@ function getSystemPrompt(config: AppConfig): string {
 
     *** CRITICAL FORMATTING RULES (ALL IMAGES) ***
     1. NO PERIOD AT THE END. Never put a full stop (.) at the very end of the Title or Description.
-    2. INTERNAL PUNCTUATION IS REQUIRED. Use periods (.) to separate distinct ideas/keywords within the text.
-       - Format: "Idea one. Idea two. Idea three" (No final dot)
+    2. PUNCTUATION BETWEEN SENTENCES. 
+       - You MUST use periods (.) or commas (,) to separate distinct ideas/sentences.
+       - DO NOT generate run-on sentences.
+       - Example: "Idea one. Idea two. Idea three" (Correct)
+       - Example: "Idea one Idea two Idea three" (INCORRECT - Run-on)
 
     *** WRITING STYLE & LOGIC (CONTENT-TYPE SPECIFIC) ***
 
     [CASE 1: ICONS (Single or Sets)]
     IF the image is an ICON or ICON SET:
     1. Title:
-       - Structure: [Subject] [Type: "icon" or "icons set"]. [Style/Feature]. [Context/Usage].
+       - Structure: [Subject] [Type: "icon" or "icons set"]. [Style/Feature].
        - MUST include "icon" or "icons".
-       - KEYWORDS TO USE: "web", "app", "ui", "interface", "mobile", "vector", "symbol", "sign", "logo".
+       - KEYWORDS TO USE: "symbol", "sign", "emblem", "element", "pictogram", "vector", "isolated".
+       - RELEVANCE CHECK: Only use words like "logo", "app", "ui", "interface" if the image EXPLICITLY depicts a logo template, mobile application screen, or UI element. Do not use them as generic filler words for standard isolated objects.
        - IF OUTLINE/LINE STYLE: Use "editable stroke", "outline", "linear", "thin line".
-       - IF FLAT/FILLED STYLE: Use "flat", "glyph", "filled", "modern".
-       - Example (Set): "Minimalist Modern community outline icons set with editable stroke. Containing people, friendship, social. thin linear illustration"
-       - Example (Set): "Set of Business icons. Business and Finance web icons in line style. Money, bank, contact. Icon collection"
-       - Example (Single): "Clock icon in trendy flat style. Page symbol for web site design app UI. Vector logo illustration"
-       - Example (Single): "Presentation board outline ui web icon. Vector icon for web, mobile and user interface design"
+       - IF FLAT/FILLED STYLE: Use "flat", "glyph", "filled", "solid".
+       - Example (Set): "Minimalist Modern community outline icons set with editable stroke. Containing people, friendship, social. thin linear symbol"
+       - Example (Set): "Set of Business icons. Business and Finance symbols in line style. Money, bank, contact. Icon collection"
+       - Example (Single): "Clock icon in trendy flat style. Time measurement symbol. Vector isolated element"
     2. Description:
-       - Focus on the usage ("for web and mobile app"), the specific style ("isolated on white background"), and listing elements if it is a set.
+       - Focus strictly on the visual subject and style (e.g., "isolated on white background"). Ensure descriptions match the specific visual content.
 
     [CASE 2: CONTINUOUS LINE ART]
     IF the image is Continuous One-Line Art:
@@ -171,6 +174,7 @@ function processResponse(text: string, config: AppConfig): Metadata {
     // --- STRICT POST-PROCESSING CLEANUP ---
 
     // Define Banned Words (Regex-ready)
+    // REMOVED: "logo", "apps", "ui", etc. from the ban list to allow them when relevant.
     const bannedWords = [
         "download", "unique", "perfect", "ideal", "best", "creative", "click", "buy", 
         "stock", "image", "photo", "vector", "graphic", "illustration", "art", "design",

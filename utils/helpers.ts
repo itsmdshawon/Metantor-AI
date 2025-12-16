@@ -3,8 +3,20 @@ import { FileItem, Metadata, Platform } from '../types';
 
 export function cleanText(text: string): string {
     if (!text) return "";
-    // Aggressively remove all special characters except comma and space
-    return text.replace(/[.\\/\[\]\{\}\?\-\+\*\_\#\@\!\~\%\$\^\&\(\)\:\;\"\'\`]/g, '').trim();
+    
+    // STRICT WHITELIST: Only allow Letters (a-z, A-Z), Numbers (0-9), Spaces, Commas, and Periods.
+    // Replace everything else (like quotes, hyphens, brackets, slashes) with a space to prevent word merging.
+    let cleaned = text.replace(/[^a-zA-Z0-9\s,.]/g, ' ');
+
+    // Collapse multiple spaces into one and trim
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    // STRICTLY remove trailing period if present, as requested
+    if (cleaned.endsWith('.')) {
+        cleaned = cleaned.slice(0, -1);
+    }
+
+    return cleaned;
 }
 
 export function fileToBase64(file: File): Promise<string> {
@@ -72,9 +84,24 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
     let rows: string[] = [];
     const completed = items.filter(i => i.status === 'complete' && i.metadata);
 
+    // Apply strict cleanText to all metadata fields before CSV generation
+    // This guarantees no special symbols (except , and .) appear in the CSV.
+    const cleanItems = completed.map(item => {
+        const m = item.metadata!;
+        return {
+            ...item,
+            metadata: {
+                ...m,
+                title: cleanText(m.title),
+                description: cleanText(m.description),
+                keywords: (m.keywords || []).map(k => cleanText(k))
+            }
+        };
+    });
+
     if (platform === 'Adobe Stock') {
         headers = ['Filename', 'Title', 'Keywords', 'Category'];
-        rows = completed.map(item => {
+        rows = cleanItems.map(item => {
             const m = item.metadata!;
             return [
                 escapeCsv(getFilename(item.file.name, extensionMode)),
@@ -86,7 +113,7 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
     } else if (platform === 'Shutterstock') {
         // Combined Categories into one column
         headers = ['Filename', 'Description', 'Keywords', 'Categories', 'Editorial', 'Mature content', 'illustration'];
-        rows = completed.map(item => {
+        rows = cleanItems.map(item => {
             const m = item.metadata!;
             // Combine main and optional with comma
             const categories = [m.shutterstock_main, m.shutterstock_optional].filter(Boolean).join(', ');
@@ -103,7 +130,7 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
         });
     } else if (platform === 'Vecteezy') {
         headers = ['Filename', 'Title', 'Keywords'];
-        rows = completed.map(item => {
+        rows = cleanItems.map(item => {
             const m = item.metadata!;
             return [
                 escapeCsv(getFilename(item.file.name, extensionMode)),
@@ -113,7 +140,7 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
         });
     } else if (platform === 'VectorStock') {
         headers = ['Filename', 'Title', 'Description', 'Keywords', 'Primary Category', 'Secondary Category'];
-        rows = completed.map(item => {
+        rows = cleanItems.map(item => {
             const m = item.metadata!;
             return [
                 escapeCsv(getFilename(item.file.name, extensionMode)),
@@ -132,7 +159,7 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
             'Shutterstock Optional Category', 'VectorStock Primary Category',
             'VectorStock Secondary Category'
         ];
-        rows = completed.map(item => {
+        rows = cleanItems.map(item => {
             const m = item.metadata!;
             let adobeC = m.adobe_category || m.category || '';
             
