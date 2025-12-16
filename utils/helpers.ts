@@ -10,9 +10,48 @@ export function cleanText(text: string): string {
 export function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Resize logic: Max dimension 1536px
+                // This ensures the base64 string stays within Groq/OpenAI payload limits (~4MB)
+                const MAX_SIZE = 1536;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_SIZE || height > MAX_SIZE) {
+                    if (width > height) {
+                        height = Math.round((height * MAX_SIZE) / width);
+                        width = MAX_SIZE;
+                    } else {
+                        width = Math.round((width * MAX_SIZE) / height);
+                        height = MAX_SIZE;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error("Could not get canvas context"));
+                    return;
+                }
+                
+                // Draw white background for transparent PNGs converted to JPEG
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Export as JPEG with 0.85 quality to save space
+                // This forces the output to be image/jpeg regardless of input
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                
+                // Return just the base64 data, stripping the "data:image/jpeg;base64," prefix
+                resolve(dataUrl.split(',')[1]);
+            };
+            img.onerror = () => reject(new Error("Failed to load image"));
+            img.src = e.target?.result as string;
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);

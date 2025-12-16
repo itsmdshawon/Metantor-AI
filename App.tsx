@@ -8,17 +8,21 @@ import SuccessModal from './components/SuccessModal';
 import Login from './components/Login';
 import AdminDashboard from './components/AdminDashboard';
 import ApiKeyModal from './components/ApiKeyModal';
-import { AppConfig, FileItem, Platform } from './types';
+import { AppConfig, FileItem, Platform, AiProvider } from './types';
 import { fileToBase64, generateCsv, generateReport, cleanText } from './utils/helpers';
 import { generateMetadata } from './services/geminiService';
 import { auth, db } from './services/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore/lite'; 
 import { Loader2, Lock } from 'lucide-react';
+import { AI_PROVIDERS } from './constants';
 
-const CONCURRENCY_LIMIT = 3; // Process 3 images simultaneously
-const RETRY_DELAY_MS = 1500; // Standard retry delay
-const RATE_LIMIT_DELAY_MS = 5000; // Delay when rate limit is hit
+const CONCURRENCY_LIMIT = 3; 
+const RETRY_DELAY_MS = 1500;
+const RATE_LIMIT_DELAY_MS = 5000; 
+
+// Type for storing keys by provider
+type ProviderKeys = Record<AiProvider, string[]>;
 
 const App: React.FC = () => {
     // --- AUTHENTICATION STATE ---
@@ -33,20 +37,53 @@ const App: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // --- API KEY STATE ---
-    const [apiKeys, setApiKeys] = useState<string[]>(() => {
+    // Migration logic: Check for old 'metantor_api_keys' (array) and move to 'metantor_provider_keys' (object)
+    const [providerKeys, setProviderKeys] = useState<ProviderKeys>(() => {
         try {
-            const stored = localStorage.getItem('metantor_api_keys');
-            return stored ? JSON.parse(stored) : [];
-        } catch (e) { return []; }
+            const storedNew = localStorage.getItem('metantor_provider_keys');
+            if (storedNew) {
+                return JSON.parse(storedNew);
+            }
+            
+            // Fallback/Migration
+            const storedOld = localStorage.getItem('metantor_api_keys');
+            const defaultStructure: ProviderKeys = {
+                'Google Gemini': [],
+                'Groq Cloud': [],
+                'xAI Grok': [],
+                'Mistral AI': []
+            };
+
+            if (storedOld) {
+                const oldKeys: string[] = JSON.parse(storedOld);
+                // Simple heuristic migration
+                oldKeys.forEach(k => {
+                    if (k.startsWith('gsk_')) defaultStructure['Groq Cloud'].push(k);
+                    else if (k.startsWith('AIza')) defaultStructure['Google Gemini'].push(k);
+                    else defaultStructure['Google Gemini'].push(k); // Default fallback
+                });
+            }
+            return defaultStructure;
+        } catch (e) { 
+            return {
+                'Google Gemini': [],
+                'Groq Cloud': [],
+                'xAI Grok': [],
+                'Mistral AI': []
+            };
+        }
     });
+
     const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
 
     useEffect(() => {
-        localStorage.setItem('metantor_api_keys', JSON.stringify(apiKeys));
-        if (apiKeys.length === 0 && user && isUserActive) {
-            setIsKeyModalOpen(true);
-        }
-    }, [apiKeys, user, isUserActive]);
+        localStorage.setItem('metantor_provider_keys', JSON.stringify(providerKeys));
+    }, [providerKeys]);
+
+    // Check if current provider has keys
+    const hasKeysForCurrentProvider = (provider: AiProvider) => {
+        return providerKeys[provider] && providerKeys[provider].length > 0;
+    };
 
     // --- MAIN APP STATE ---
     const [config, setConfig] = useState<AppConfig>(() => {
@@ -57,12 +94,18 @@ const App: React.FC = () => {
             platform: 'General',
             useCustomPrompt: false,
             customPrompt: '',
-            extensionMode: 'default'
+            extensionMode: 'default',
+            provider: 'Google Gemini',
+            model: 'gemini-2.5-flash'
         };
         try {
             const stored = localStorage.getItem('metantor_config');
             if (stored) {
                 const parsed = JSON.parse(stored);
+                // Ensure model validity if stored config has old model names
+                if (!AI_PROVIDERS[parsed.provider as AiProvider]?.find(m => m.id === parsed.model)) {
+                    parsed.model = AI_PROVIDERS[parsed.provider as AiProvider][0].id;
+                }
                 return { ...defaults, ...parsed };
             }
         } catch (e) {
@@ -70,6 +113,14 @@ const App: React.FC = () => {
         }
         return defaults;
     });
+
+    // Auto-open modal if no keys for current provider on mount
+    useEffect(() => {
+        if (user && isUserActive && !hasKeysForCurrentProvider(config.provider)) {
+            // Optional: Auto open modal? Maybe better to let user click the button in sidebar
+            // setIsKeyModalOpen(true);
+        }
+    }, [config.provider, user, isUserActive]);
 
     useEffect(() => {
         localStorage.setItem('metantor_config', JSON.stringify(config));
@@ -87,13 +138,13 @@ const App: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const currentKeyIndex = useRef(0);
     const configRef = useRef(config);
-    const apiKeysRef = useRef(apiKeys);
-    const pendingQueueRef = useRef<string[]>([]); // Stores IDs of files to process
+    const providerKeysRef = useRef(providerKeys);
+    const pendingQueueRef = useRef<string[]>([]); 
 
     // Sync Refs with State
     useEffect(() => { filesRef.current = files; }, [files]);
     useEffect(() => { configRef.current = config; }, [config]);
-    useEffect(() => { apiKeysRef.current = apiKeys; }, [apiKeys]);
+    useEffect(() => { providerKeysRef.current = providerKeys; }, [providerKeys]);
 
     const processedCount = files.filter(f => f.status === 'complete').length;
 
@@ -111,12 +162,7 @@ const App: React.FC = () => {
                         const data = docSnap.data();
                         let active = data.isActive === true;
                         let admin = data.isAdmin === true;
-
-                        if (currentUser.email === 'admin@metantor.com') {
-                             admin = true;
-                             active = true;
-                        }
-
+                        if (currentUser.email === 'admin@metantor.com') { admin = true; active = true; }
                         setIsUserActive(active);
                         setIsAdmin(admin);
                     } else {
@@ -205,50 +251,52 @@ const App: React.FC = () => {
         pendingQueueRef.current = [];
     };
 
+    // --- KEY MANAGEMENT PER PROVIDER ---
     const handleAddKey = (key: string) => {
-        setApiKeys(prev => [...prev, key]);
+        setProviderKeys(prev => ({
+            ...prev,
+            [config.provider]: [...(prev[config.provider] || []), key]
+        }));
     };
 
     const handleRemoveKey = (index: number) => {
-        setApiKeys(prev => prev.filter((_, i) => i !== index));
+        setProviderKeys(prev => ({
+            ...prev,
+            [config.provider]: prev[config.provider].filter((_, i) => i !== index)
+        }));
     };
 
     // --- PARALLEL PROCESSING ENGINE ---
 
-    // 1. Worker Function: Processes a single file ID with infinite retry
+    // 1. Worker Function
     const processFileWorker = async (fileId: string) => {
-        // Find the file object (static reference)
         const fileItem = filesRef.current.find(f => f.id === fileId);
         if (!fileItem) return;
 
         let success = false;
         let retries = 0;
         
-        // Infinite loop until success or stop signal
         while (!success && !shouldStopRef.current) {
             try {
-                // Get Key (Round Robin)
-                const keys = apiKeysRef.current;
-                if (keys.length === 0) throw new Error("No API Keys available");
+                // Get Key from CURRENT Provider pool
+                const currentProvider = configRef.current.provider;
+                const keys = providerKeysRef.current[currentProvider];
                 
-                // Rotate key based on global counter
+                if (!keys || keys.length === 0) throw new Error(`No API Keys for ${currentProvider}`);
+                
                 const apiKey = keys[currentKeyIndex.current % keys.length];
                 currentKeyIndex.current++; 
 
-                // Signal Processing (or Retrying)
                 setFiles(prev => prev.map(f => f.id === fileId ? { 
                     ...f, 
                     status: 'processing',
                     errorMsg: retries > 0 ? `Retrying... (${retries})` : undefined
                 } : f));
 
-                // Prepare Data
                 const base64 = await fileToBase64(fileItem.file);
                 
-                // Call AI Service
                 let metadata = await generateMetadata(base64, fileItem.file.type, configRef.current, apiKey);
 
-                // Sanitize Response
                 if (metadata.title) metadata.title = cleanText(metadata.title);
                 if (metadata.description) metadata.description = cleanText(metadata.description);
                 if (metadata.keywords && Array.isArray(metadata.keywords)) {
@@ -258,7 +306,6 @@ const App: React.FC = () => {
                     }
                 }
 
-                // Update State on Success
                 setFiles(prev => prev.map(f => f.id === fileId ? { 
                     ...f, 
                     status: 'complete', 
@@ -276,7 +323,6 @@ const App: React.FC = () => {
                                     errorStr.includes('quota') ||
                                     errorStr.includes('resource exhausted');
                 
-                // Fatal errors that shouldn't be retried
                 const isFatal = errorStr.includes('400') || 
                                 errorStr.includes('401') || 
                                 errorStr.includes('403') ||
@@ -291,14 +337,12 @@ const App: React.FC = () => {
                         errorMsg: error.message ? error.message.substring(0, 50) : "Fatal Error",
                         retryCount: retries 
                     } : f));
-                    break; // Stop retrying this file
+                    break;
                 }
 
                 retries++;
-                
                 const delay = isRateLimit ? RATE_LIMIT_DELAY_MS : RETRY_DELAY_MS;
                 
-                // Extract brief error code/message for the UI
                 let shortError = "Error";
                 if (errorStr.includes('503')) shortError = "503 Service Unavailable";
                 else if (errorStr.includes('500')) shortError = "500 Server Error";
@@ -307,57 +351,46 @@ const App: React.FC = () => {
                 else if (error.message) shortError = error.message.substring(0, 20) + "...";
 
                 const statusMsg = `${shortError}. Retrying...`;
-                
                 console.warn(`Attempt failed for ${fileItem.file.name} (Retry ${retries}):`, error);
 
-                // Update UI to Signal the user
                 setFiles(prev => prev.map(f => f.id === fileId ? {
                     ...f,
-                    status: 'processing', // Keep as processing so it doesn't fail immediately
+                    status: 'processing',
                     retryCount: retries,
                     errorMsg: statusMsg
                 } : f));
                 
-                // Wait before retrying (smart backoff)
                 await new Promise(r => setTimeout(r, delay));
             }
         }
     };
 
-    // 2. Queue Manager: Spawns workers
+    // 2. Queue Manager
     const processQueueManager = async () => {
         const workers: Promise<void>[] = [];
-
-        // Loop while there are items in the queue and we haven't been stopped
         while (pendingQueueRef.current.length > 0 && !shouldStopRef.current) {
-            
-            // If we have capacity for more workers
             while (workers.length < CONCURRENCY_LIMIT && pendingQueueRef.current.length > 0) {
                 const nextId = pendingQueueRef.current.shift();
                 if (nextId) {
-                    // Spawn worker and remove from 'workers' array when done
                     const workerPromise = processFileWorker(nextId).then(() => {
                         workers.splice(workers.indexOf(workerPromise), 1);
                     });
                     workers.push(workerPromise);
                 }
             }
-
-            // Wait for at least one worker to finish before loop checks again 
             if (workers.length > 0) {
                 await Promise.race(workers);
             } else {
-                break; // No workers and queue empty
+                break;
             }
         }
-
-        // Wait for remaining workers to finish
         await Promise.all(workers);
     };
 
     // 3. Start Trigger
     const startProcessing = async () => {
-        if (apiKeysRef.current.length === 0) {
+        // Check keys for CURRENT provider
+        if (!providerKeysRef.current[configRef.current.provider]?.length) {
             setIsKeyModalOpen(true);
             return;
         }
@@ -367,7 +400,6 @@ const App: React.FC = () => {
         shouldStopRef.current = false;
         isProcessingRef.current = true;
 
-        // Initialize Queue with all pending files
         const pendingFiles = filesRef.current.filter(f => f.status === 'pending');
         pendingQueueRef.current = pendingFiles.map(f => f.id);
 
@@ -376,9 +408,7 @@ const App: React.FC = () => {
         setIsProcessing(false);
         isProcessingRef.current = false;
 
-        // Check if actually finished everything successfully
         const hasSomeComplete = filesRef.current.some(f => f.status === 'complete');
-        
         if (hasSomeComplete && !shouldStopRef.current) {
             setShowSuccessModal(true);
         }
@@ -416,9 +446,7 @@ const App: React.FC = () => {
         );
     }
 
-    if (!user) {
-        return <Login />;
-    }
+    if (!user) return <Login />;
 
     if (!isUserActive) {
         return (
@@ -432,12 +460,7 @@ const App: React.FC = () => {
                         Your account is currently inactive or payment is pending. <br/>
                         Please contact the administrator to activate your subscription.
                     </p>
-                    <button 
-                        onClick={() => signOut(auth)}
-                        className="text-slate-500 hover:text-white text-xs underline underline-offset-4"
-                    >
-                        Sign Out
-                    </button>
+                    <button onClick={() => signOut(auth)} className="text-slate-500 hover:text-white text-xs underline underline-offset-4">Sign Out</button>
                 </div>
             </div>
         );
@@ -477,7 +500,7 @@ const App: React.FC = () => {
                     isAdmin={isAdmin}
                     onOpenAdmin={() => setShowAdminPanel(true)}
                     onLogout={() => signOut(auth)}
-                    apiKeysCount={apiKeys.length}
+                    apiKeysCount={providerKeys[config.provider]?.length || 0}
                     onOpenApiKeys={() => setIsKeyModalOpen(true)}
                     isOpen={sidebarOpen}
                     onClose={() => setSidebarOpen(false)}
@@ -521,10 +544,11 @@ const App: React.FC = () => {
             <ApiKeyModal 
                 isOpen={isKeyModalOpen} 
                 onClose={() => setIsKeyModalOpen(false)} 
-                apiKeys={apiKeys} 
+                apiKeys={providerKeys[config.provider] || []} 
                 onAddKey={handleAddKey} 
                 onRemoveKey={handleRemoveKey}
-                forceOpen={apiKeys.length === 0 && !isProcessing}
+                forceOpen={!hasKeysForCurrentProvider(config.provider) && !isProcessing && files.length > 0}
+                provider={config.provider}
             />
 
             <ImageModal url={previewImage} onClose={() => setPreviewImage(null)} />

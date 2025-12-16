@@ -1,5 +1,7 @@
+
 import React, { useState } from 'react';
 import { X, Trash2, Shield, ExternalLink, Plus, Key } from 'lucide-react';
+import { AiProvider } from '../types';
 
 interface ApiKeyModalProps {
     isOpen: boolean;
@@ -8,6 +10,7 @@ interface ApiKeyModalProps {
     onAddKey: (key: string) => void;
     onRemoveKey: (index: number) => void;
     forceOpen: boolean;
+    provider: AiProvider;
 }
 
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ 
@@ -16,7 +19,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     apiKeys, 
     onAddKey, 
     onRemoveKey,
-    forceOpen
+    forceOpen,
+    provider
 }) => {
     const [newKey, setNewKey] = useState('');
 
@@ -35,6 +39,18 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         }
     };
 
+    const getProviderLinks = (prov: AiProvider) => {
+        switch(prov) {
+            case 'Google Gemini': return { url: 'https://aistudio.google.com/app/apikey', label: 'Get API Key from Google AI Studio' };
+            case 'Groq Cloud': return { url: 'https://console.groq.com/keys', label: 'Get API Key from Groq Cloud' };
+            case 'xAI Grok': return { url: 'https://console.x.ai/', label: 'Get API Key from xAI Console' };
+            case 'Mistral AI': return { url: 'https://console.mistral.ai/api-keys/', label: 'Get API Key from Mistral Platform' };
+            default: return { url: '#', label: 'Get API Key' };
+        }
+    }
+
+    const linkData = getProviderLinks(provider);
+
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md animate-fadeIn">
             <div className="bg-[#0f1320] border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden flex flex-col max-h-[90vh] ring-1 ring-white/5">
@@ -46,8 +62,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                             <Shield className="w-4 h-4 text-blue-500" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-slate-200 leading-none">API Access</h3>
-                            <p className="text-[10px] text-slate-500 font-medium mt-1">Configure your Gemini credentials</p>
+                            <h3 className="text-sm font-bold text-slate-200 leading-none">{provider} Access</h3>
+                            <p className="text-[10px] text-slate-500 font-medium mt-1">Configure your credentials</p>
                         </div>
                     </div>
                     {!forceOpen && (
@@ -59,10 +75,10 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
                 <div className="p-6 flex-1 overflow-y-auto">
                     
-                    {/* Add New Key - Moved to Top */}
+                    {/* Add New Key */}
                     <div className="mb-8">
                         <label className="block text-[11px] font-bold text-slate-500 mb-2.5 uppercase tracking-wider">
-                            Add New Credentials
+                            Add New {provider} Key
                         </label>
                         <div className="flex gap-2">
                             <div className="relative flex-1 group">
@@ -74,7 +90,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                                     value={newKey}
                                     onChange={(e) => setNewKey(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Paste Google AI Studio Key..."
+                                    placeholder={`Paste ${provider} Key...`}
                                     className="w-full bg-[#050816] border border-gray-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 transition-all placeholder-slate-600"
                                 />
                             </div>
@@ -132,12 +148,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 {/* Footer Link */}
                 <div className="p-4 bg-[#050816]/50 border-t border-gray-800">
                     <a 
-                        href="https://aistudio.google.com/app/apikey" 
+                        href={linkData.url} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full border border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-400 text-slate-400 py-3 rounded-xl text-xs font-semibold transition-all group"
                     >
-                        <span>Get API Key from Google AI Studio</span>
+                        <span>{linkData.label}</span>
                         <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                     </a>
                 </div>

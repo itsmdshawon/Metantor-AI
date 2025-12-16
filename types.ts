@@ -1,6 +1,8 @@
 
 export type Platform = 'General' | 'Adobe Stock' | 'Shutterstock' | 'Vecteezy' | 'VectorStock';
 
+export type AiProvider = 'Google Gemini' | 'Groq Cloud' | 'xAI Grok' | 'Mistral AI';
+
 export interface Metadata {
     title: string;
     description: string;
@@ -26,7 +28,7 @@ export interface FileItem {
     status: 'pending' | 'processing' | 'complete' | 'error';
     metadata?: Metadata;
     errorMsg?: string;
-    retryCount?: number; // Added to track retries per file
+    retryCount?: number;
 }
 
 export interface AppConfig {
@@ -37,4 +39,7 @@ export interface AppConfig {
     useCustomPrompt: boolean;
     customPrompt: string;
     extensionMode: string;
+    // New AI Config
+    provider: AiProvider;
+    model: string;
 }
