@@ -161,12 +161,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <div className="flex justify-between items-center">
                             <label className="text-sm font-medium text-slate-400">Title Length</label>
                             <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
-                                {config.titleLen} w
+                                {config.titleLen} w / {config.titleLen * 7} c
                             </span>
                         </div>
                         <input 
                             type="range" 
-                            min="5" max="25" step="1" 
+                            min="5" max="30" step="1" 
                             value={config.titleLen}
                             onChange={(e) => handleChange('titleLen', parseInt(e.target.value))}
                             className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
@@ -178,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <div className="flex justify-between items-center">
                             <label className="text-sm font-medium text-slate-400">Description Length</label>
                             <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
-                                {config.descLen} w
+                                {config.descLen} w / {config.descLen * 7} c
                             </span>
                         </div>
                         <input 
