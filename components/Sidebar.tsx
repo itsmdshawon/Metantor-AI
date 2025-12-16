@@ -275,7 +275,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <div className="space-y-1.5">
                                 <p className="text-xs text-blue-200 font-semibold">Developed by Md. Shawon</p>
                                 <p className="text-[10px] text-slate-400 leading-relaxed">
-                                    Brand Designer & Contributor on major platforms like Adobe Stock, Shutterstock, Vecteezy, VectorStock and more.
+                                    Brand Designer & Contributor on major platforms like Adobe Stock, Shutterstock, Vecteezy, VectorStock and more. This tool was built from real daily experience to streamline the contributor workflow.
                                 </p>
                             </div>
                         </div>

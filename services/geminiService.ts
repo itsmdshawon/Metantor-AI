@@ -78,8 +78,8 @@ function getSystemPrompt(config: AppConfig): string {
     *** STRICT SAFETY RULES (NO REJECTIONS) ***
     1. NO PROMOTIONAL LANGUAGE. 
        - NEVER use words like: "download", "click", "buy", "unique", "perfect", "ideal", "best", "amazing", "stunning", "creative", "concept".
-    2. NO FORMAT REFERENCES AS SUBJECT.
-       - The platform knows it's a file. Focus on visual description.
+    2. NO FORMAT REFERENCES AS SUBJECT (Except the mandatory suffix).
+       - Focus on visual description first.
 
     *** CRITICAL FORMATTING RULES (ALL IMAGES) ***
     1. NO PERIOD AT THE END. Never put a full stop (.) at the very end of the Title or Description.
@@ -94,34 +94,42 @@ function getSystemPrompt(config: AppConfig): string {
     [CASE 1: ICONS (Single or Sets)]
     IF the image is an ICON or ICON SET:
     1. Title:
-       - Structure: [Subject] [Type: "icon" or "icons set"]. [Style/Feature].
+       - Structure: [Subject] [Type: "icon" or "icons set"]. [Style/Feature]. Vector illustration
        - MUST include "icon" or "icons".
-       - KEYWORDS TO USE: "symbol", "sign", "emblem", "element", "pictogram", "vector", "isolated".
-       - RELEVANCE CHECK: Only use words like "logo", "app", "ui", "interface" if the image EXPLICITLY depicts a logo template, mobile application screen, or UI element. Do not use them as generic filler words for standard isolated objects.
+       - RELEVANCE CHECK: Only use words like "logo", "app", "ui", "interface" if the image EXPLICITLY depicts a logo template, mobile application screen, or UI element.
        - IF OUTLINE/LINE STYLE: Use "editable stroke", "outline", "linear", "thin line".
        - IF FLAT/FILLED STYLE: Use "flat", "glyph", "filled", "solid".
-       - Example (Set): "Minimalist Modern community outline icons set with editable stroke. Containing people, friendship, social. thin linear symbol"
-       - Example (Set): "Set of Business icons. Business and Finance symbols in line style. Money, bank, contact. Icon collection"
-       - Example (Single): "Clock icon in trendy flat style. Time measurement symbol. Vector isolated element"
+       - MANDATORY SUFFIX: The Title MUST end with the exact phrase "Vector illustration".
+       - Example: "Clock icon in trendy flat style. Time measurement symbol. Vector isolated element. Vector illustration"
     2. Description:
-       - Focus strictly on the visual subject and style (e.g., "isolated on white background"). Ensure descriptions match the specific visual content.
+       - Focus strictly on the visual subject and style.
+       - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
 
     [CASE 2: CONTINUOUS LINE ART]
     IF the image is Continuous One-Line Art:
     1. Title:
-       - Structure: [Main Subject]. [Specific Style]. [Context].
+       - Structure: [Main Subject]. [Specific Style]. [Context]. Vector illustration
        - MUST use keywords: "continuous line drawing", "single line", "one line", "linear", "outline".
-       - Example: "One line drawing Speech bubble vector. Communication chat messenger single line vector linear icon"
+       - MANDATORY SUFFIX: The Title MUST end with the exact phrase "Vector illustration".
+       - Example: "One line drawing Speech bubble vector. Communication chat messenger single line linear icon. Vector illustration"
     2. Description:
-       - Example: "Poppy flowers in continuous line art drawing style. Doodle floral border with two flowers blooming. Minimalist black linear design"
+       - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
 
-    [CASE 3: PHOTOS & GENERAL ILLUSTRATIONS]
-    IF the image is a Photo or General Illustration:
-    1. Title:
-       - Structure: [Main Subject]. [Style/Lighting]. [Context].
+    [CASE 3: PHOTOS vs VECTOR ILLUSTRATIONS]
+    Determine if the image is a Real Photograph or a Vector Illustration.
+
+    IF PHOTOGRAPH (Realistic, Camera shot):
+    1. Title: [Subject]. [Style/Lighting]. [Context].
+       - DO NOT add "Vector illustration".
        - Example: "Smiling business woman holding tablet. Portrait in modern office. Corporate executive lifestyle"
-    2. Description:
+    2. Description: [Detailed Subject]. [Lighting/Mood].
        - Example: "Senior man jogging in the park during sunrise. Backlight warm lighting. Active healthy retirement concept"
+
+    IF VECTOR ILLUSTRATION (Cartoon, Flat, Gradient, Isometric, Hand drawn, etc.):
+    1. Title: [Subject]. [Style]. [Context]. Vector illustration
+       - MANDATORY SUFFIX: The Title MUST end with the exact phrase "Vector illustration".
+    2. Description: [Detailed Subject]. [Style details]. Vector illustration
+       - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
 
     *** KEYWORD RULES ***
     1. SINGLE WORDS ONLY. Split phrases (e.g., "line art" -> "line", "art").
@@ -174,10 +182,10 @@ function processResponse(text: string, config: AppConfig): Metadata {
     // --- STRICT POST-PROCESSING CLEANUP ---
 
     // Define Banned Words (Regex-ready)
-    // REMOVED: "logo", "apps", "ui", etc. from the ban list to allow them when relevant.
+    // REMOVED: "vector" and "illustration" to allow the mandatory suffix "Vector illustration".
     const bannedWords = [
         "download", "unique", "perfect", "ideal", "best", "creative", "click", "buy", 
-        "stock", "image", "photo", "vector", "graphic", "illustration", "art", "design",
+        "stock", "image", "photo", "graphic", "art", "design",
         "picture", "wallpaper", "background", "high quality", "premium", "hd", "4k", 
         "stunning", "beautiful", "amazing", "concept", "conceptual", "artwork", "shot", "capture"
     ];
