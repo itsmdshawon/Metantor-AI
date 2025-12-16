@@ -81,59 +81,63 @@ function getSystemPrompt(config: AppConfig): string {
     2. NO FORMAT REFERENCES AS SUBJECT (Except the mandatory suffix).
        - Focus on visual description first.
 
+    *** CRITICAL KEYWORD RESTRICTIONS (FALSE POSITIVES) ***
+    1. "LOGO" / "ICON" / "APP" / "SYMBOL":
+       - DO NOT use these words unless the image is EXPLICITLY a functional design element (e.g., a button, a mobile app screen, a corporate logo template).
+       - An artistic drawing, sketch, or illustration of an object (e.g., a flower, a car, a person) is NOT a "logo" or "app". It is an "illustration".
+       - IF IN DOUBT, USE "Illustration" or "Drawing" INSTEAD OF "Logo".
+
     *** CRITICAL FORMATTING RULES (ALL IMAGES) ***
     1. NO PERIOD AT THE END. Never put a full stop (.) at the very end of the Title or Description.
     2. PUNCTUATION BETWEEN SENTENCES. 
        - You MUST use periods (.) or commas (,) to separate distinct ideas/sentences.
        - DO NOT generate run-on sentences.
-       - Example: "Idea one. Idea two. Idea three" (Correct)
-       - Example: "Idea one Idea two Idea three" (INCORRECT - Run-on)
 
     *** WRITING STYLE & LOGIC (CONTENT-TYPE SPECIFIC) ***
+    Analyze the visual style of the image and select ONE of the following cases:
 
-    [CASE 1: ICONS (Single or Sets)]
-    IF the image is an ICON or ICON SET:
-    1. Title:
-       - Structure: [Subject] [Type: "icon" or "icons set"]. [Style/Feature]. Vector illustration
-       - MUST include "icon" or "icons".
-       - RELEVANCE CHECK: Only use words like "logo", "app", "ui", "interface" if the image EXPLICITLY depicts a logo template, mobile application screen, or UI element.
-       - IF OUTLINE/LINE STYLE: Use "editable stroke", "outline", "linear", "thin line".
-       - IF FLAT/FILLED STYLE: Use "flat", "glyph", "filled", "solid".
-       - MANDATORY SUFFIX: The Title MUST end with the exact phrase "Vector illustration".
-       - Example: "Clock icon in trendy flat style. Time measurement symbol. Vector isolated element. Vector illustration"
-    2. Description:
-       - Focus strictly on the visual subject and style.
-       - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
+    [CASE 1: ICONS & UI ELEMENTS (VECTOR)]
+    IF AND ONLY IF the image is a functional ICON or UI ELEMENT:
+    1. Title: [Subject] [Type: "icon"]. [Style]. Vector illustration
+       - MANDATORY SUFFIX: "Vector illustration"
+    2. Description: [Details]. Vector illustration
+       - MANDATORY SUFFIX: "Vector illustration"
 
-    [CASE 2: CONTINUOUS LINE ART]
-    IF the image is Continuous One-Line Art:
-    1. Title:
-       - Structure: [Main Subject]. [Specific Style]. [Context]. Vector illustration
-       - MUST use keywords: "continuous line drawing", "single line", "one line", "linear", "outline".
-       - MANDATORY SUFFIX: The Title MUST end with the exact phrase "Vector illustration".
-       - Example: "One line drawing Speech bubble vector. Communication chat messenger single line linear icon. Vector illustration"
-    2. Description:
-       - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
+    [CASE 2: CONTINUOUS LINE ART / DRAWINGS (VECTOR)]
+    IF the image is Line Art, Sketch, or Drawing (Black & White or Simple Color):
+    1. Title: [Main Subject]. [Specific Style]. [Context]. Vector illustration
+       - Use keywords: "continuous line drawing", "single line", "linear", "outline".
+       - DO NOT use "logo" or "app".
+       - MANDATORY SUFFIX: "Vector illustration"
+    2. Description: [Details]. Vector illustration
+       - MANDATORY SUFFIX: "Vector illustration"
 
-    [CASE 3: PHOTOS vs VECTOR ILLUSTRATIONS]
-    Determine if the image is a Real Photograph or a Vector Illustration.
-
-    IF PHOTOGRAPH (Realistic, Camera shot):
-    1. Title: [Subject]. [Style/Lighting]. [Context].
-       - DO NOT add "Vector illustration".
-       - Example: "Smiling business woman holding tablet. Portrait in modern office. Corporate executive lifestyle"
-    2. Description: [Detailed Subject]. [Lighting/Mood].
-       - Example: "Senior man jogging in the park during sunrise. Backlight warm lighting. Active healthy retirement concept"
-
-    IF VECTOR ILLUSTRATION (Cartoon, Flat, Gradient, Isometric, Hand drawn, etc.):
+    [CASE 3: FLAT / 2D VECTOR-STYLE ILLUSTRATIONS]
+    IF the image is a 2D Vector style (Flat, Cartoon, SVG style, Clean lines, Gradient, Isometric vector):
     1. Title: [Subject]. [Style]. [Context]. Vector illustration
        - MANDATORY SUFFIX: The Title MUST end with the exact phrase "Vector illustration".
+       - DO NOT use "Vector graphic", "Vector art", or "Vector design". ONLY "Vector illustration".
     2. Description: [Detailed Subject]. [Style details]. Vector illustration
        - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
 
+    [CASE 4: 3D RENDERS & RASTER ILLUSTRATIONS]
+    IF the image is a 3D Render, CGI, or Detailed Digital Painting (Raster/Bitmap look, soft lighting, complex textures):
+    1. Title: [Subject]. [Style: e.g. "3D render", "3D illustration", "Digital art"]. [Context]
+       - STRICTLY DO NOT add "Vector illustration".
+       - DO NOT use the word "Vector".
+    2. Description: [Detailed Subject]. [Style details]
+       - STRICTLY DO NOT add "Vector illustration".
+
+    [CASE 5: REALISTIC PHOTOGRAPHS]
+    IF the image is a Real Photograph (Camera shot):
+    1. Title: [Subject]. [Style/Lighting]. [Context]
+       - STRICTLY DO NOT add "Vector illustration".
+       - DO NOT use the word "Vector".
+    2. Description: [Detailed Subject]. [Lighting/Mood]
+
     *** KEYWORD RULES ***
     1. SINGLE WORDS ONLY. Split phrases (e.g., "line art" -> "line", "art").
-    2. INCLUDE STYLE TAGS based on content type (e.g., "icon", "editable", "stroke" for icons; "continuous", "one" for line art).
+    2. INCLUDE STYLE TAGS based on content type.
     3. RELEVANCE. Only include tags that are visually present.
     
     *** LENGTH CONSTRAINTS ***
@@ -182,12 +186,12 @@ function processResponse(text: string, config: AppConfig): Metadata {
     // --- STRICT POST-PROCESSING CLEANUP ---
 
     // Define Banned Words (Regex-ready)
-    // REMOVED: "vector" and "illustration" to allow the mandatory suffix "Vector illustration".
+    // NOTE: Synonyms like "art", "design", "graphic" are NOT banned to prevent incomplete sentences.
     const bannedWords = [
         "download", "unique", "perfect", "ideal", "best", "creative", "click", "buy", 
-        "stock", "image", "photo", "graphic", "art", "design",
+        "stock", "image", "photo", 
         "picture", "wallpaper", "background", "high quality", "premium", "hd", "4k", 
-        "stunning", "beautiful", "amazing", "concept", "conceptual", "artwork", "shot", "capture"
+        "stunning", "beautiful", "amazing", "concept", "conceptual", "shot", "capture"
     ];
 
     // Helper to clean a sentence
@@ -210,6 +214,20 @@ function processResponse(text: string, config: AppConfig): Metadata {
         if (res.endsWith('.')) {
             res = res.slice(0, -1);
         }
+
+        // --- REPAIR LOGIC: Ensure "Vector illustration" is complete (ONLY IF VECTOR IS PRESENT) ---
+        // We only trigger this if the AI output "Vector" or "Vector design". 
+        // If the AI output a 3D description without "Vector", this logic stays dormant.
+        
+        // 1. If text ends in just "Vector" (incomplete), append " illustration".
+        if (res.match(/Vector$/i)) {
+            res = res + ' illustration';
+        }
+
+        // 2. If text ends in "Vector design", "Vector art", "Vector graphic" (synonyms), 
+        // REPLACE it with "Vector illustration" to satisfy the specific requirement for vectors.
+        res = res.replace(/Vector (art|design|graphic|drawing|image)$/i, 'Vector illustration');
+
         return res;
     };
 
