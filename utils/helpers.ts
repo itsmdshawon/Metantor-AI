@@ -228,10 +228,13 @@ export function generateReport(items: FileItem[], platform: Platform, titleLenTa
     
     reportContent += `Total Files Processed: ${completed.length}\n`;
     reportContent += `Platform Strategy: ${platform}\n\n`;
-    reportContent += "BATCH SUMMARY:\n";
-    reportContent += "This metadata was generated to help buyers find your images easily. ";
-    reportContent += "We focused on specific, relevant keywords rather than generic terms. ";
-    reportContent += "Titles and descriptions are written to be natural and readable. If they are slightly shorter than the maximum limit, it is to ensure the sentences are complete and make sense, without adding useless filler words.\n\n";
+    reportContent += "OVERVIEW:\n";
+    reportContent += "This metadata strategy is designed to maximize your content's visibility and sales potential across major stock platforms. ";
+    reportContent += "We have prioritized high-relevance, descriptive keywords over broad, generic terms to target buyers with specific purchasing intent. ";
+    reportContent += "Titles and descriptions are crafted to be natural, professional, and grammatically complete, ensuring strict adherence to platform guidelines and avoiding rejection. ";
+    reportContent += "By focusing on the unique visual and conceptual elements of each image, we ensure your content ranks higher in relevant search results. ";
+    reportContent += "If specific text fields are slightly shorter than the maximum character limit, this is intentional: we prioritize concise, meaningful descriptions that convert, rather than filling space with irrelevant filler words. ";
+    reportContent += "This professional approach is designed to build a high-quality portfolio that performs consistently over time.\n\n";
 
     return reportContent;
 }
