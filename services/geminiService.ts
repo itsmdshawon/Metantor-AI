@@ -14,10 +14,10 @@ function getSystemPrompt(config: AppConfig): string {
         "description": "Detailed Subject. Style details. Context (No trailing dot)", 
         "keywords": ["tag1", "tag2", "tag3"],
         "explanation": {
-            "keyword_logic": "Explain why these keywords were chosen in simple English...",
-            "title_logic": "Explain the title structure in simple English...",
-            "description_logic": "Explain the description flow in simple English...",
-            "sales_logic": "Explain the sales strategy in simple English..."
+            "keyword_logic": "Explain keyword choice in simple English...",
+            "title_logic": "Explain title structure and length reasoning. IMPORTANT: Do NOT mention specific numbers (e.g. do not say 'I used 15 words'). Instead, explain the REASON (e.g. 'I kept it concise' or 'I included extra details for clarity').",
+            "description_logic": "Explain description flow and length reasoning. IMPORTANT: Do NOT mention specific numbers. Instead, explain the REASON (e.g. 'I kept it concise' or 'I included extra details').",
+            "sales_logic": "Explain sales strategy in simple English..."
         }
     `;
 
@@ -94,10 +94,11 @@ function getSystemPrompt(config: AppConfig): string {
        - DO NOT generate run-on sentences.
 
     *** REPORT EXPLANATION STYLE (VERY IMPORTANT) ***
-    1. SIMPLE ENGLISH ONLY: Write the "explanation" fields (title_logic, description_logic, etc.) in plain, simple language that anyone can understand.
-    2. NO JARGON: Do NOT use terms like "Style Guide B", "Microstock Stacking", or complex technical codes in the explanation text.
-    3. WORD COUNT EXPLANATION: If the Title or Description is shorter than the target length, simply explain that you stopped to keep the sentence natural and complete (no filler words). 
-    4. COMPLETE SENTENCES: Always ensure the generated Title and Description are grammatically complete sentences (except for the missing trailing dot).
+    1. SIMPLE ENGLISH ONLY: Write the "explanation" fields (title_logic, description_logic, etc.) in plain, friendly language.
+    2. NO JARGON: Avoid technical terms. Just explain your thought process.
+    3. WORD COUNT REASONING: 
+       - Do NOT state numbers (e.g. "I used 24 words"). 
+       - ONLY explain WHY (e.g. "I added extra details to make the sentence complete" or "I removed filler words to keep it concise").
 
     *** WRITING STYLE & LOGIC (CONTENT-TYPE SPECIFIC) ***
     Analyze the visual style of the image and select ONE of the following cases:
@@ -107,7 +108,7 @@ function getSystemPrompt(config: AppConfig): string {
     1. Title: [Subject] [Type: "icon"]. [Style]. Vector illustration
        - MANDATORY SUFFIX: "Vector illustration"
     2. Description: [Details]. Vector illustration
-       - MANDATORY SUFFIX: "Vector illustration"
+       - MANDATORY SUFFIX: "Vector illustration" (MUST be included regardless of word count).
 
     [CASE 2: CONTINUOUS LINE ART / DRAWINGS (VECTOR)]
     IF the image is Line Art, Sketch, or Drawing (Black & White or Simple Color):
@@ -116,7 +117,7 @@ function getSystemPrompt(config: AppConfig): string {
        - DO NOT use "logo" or "app".
        - MANDATORY SUFFIX: "Vector illustration"
     2. Description: [Details]. Vector illustration
-       - MANDATORY SUFFIX: "Vector illustration"
+       - MANDATORY SUFFIX: "Vector illustration" (MUST be included regardless of word count).
 
     [CASE 3: FLAT / 2D VECTOR-STYLE ILLUSTRATIONS]
     IF the image is a 2D Vector style (Flat, Cartoon, SVG style, Clean lines, Gradient, Isometric vector):
@@ -125,6 +126,7 @@ function getSystemPrompt(config: AppConfig): string {
        - DO NOT use "Vector graphic", "Vector art", or "Vector design". ONLY "Vector illustration".
     2. Description: [Detailed Subject]. [Style details]. Vector illustration
        - MANDATORY SUFFIX: The Description MUST end with the exact phrase "Vector illustration".
+       - CRITICAL: You MUST include this suffix even if the description is very short.
 
     [CASE 4: 3D RENDERS & RASTER ILLUSTRATIONS]
     IF the image is a 3D Render, CGI, or Detailed Digital Painting (Raster/Bitmap look, soft lighting, complex textures):
@@ -147,8 +149,8 @@ function getSystemPrompt(config: AppConfig): string {
     3. RELEVANCE. Only include tags that are visually present.
     
     *** LENGTH CONSTRAINTS ***
-    1. Title: ~${config.titleLen} words (STRICT MAX 200 CHARACTERS).
-    2. Description: ~${config.descLen} words.
+    1. Title: Target ~${config.titleLen} words. (It is okay to be +/- 5 words to ensure a complete sentence. DO NOT STOP mid-sentence).
+    2. Description: Target ~${config.descLen} words. (It is okay to be +/- 5 words to ensure a complete sentence).
     3. Keywords: ${config.kwCount} tags.
 
     ${promptExtras}
@@ -240,6 +242,23 @@ function processResponse(text: string, config: AppConfig): Metadata {
     // 1. Clean Title and Description
     if (parsed.title) parsed.title = cleanSentence(parsed.title);
     if (parsed.description) parsed.description = cleanSentence(parsed.description);
+
+    // --- CONSISTENCY ENFORCER ---
+    // If the Title is marked as a Vector (ends with "Vector illustration"), 
+    // we MUST enforce the Description to also end with it. 
+    // This handles cases where the AI drops the suffix in description due to word count limits.
+    const vectorSuffix = "Vector illustration";
+    const titleIsVector = parsed.title && /Vector illustration$/i.test(parsed.title);
+    const descIsVector = parsed.description && /Vector illustration$/i.test(parsed.description);
+
+    if (titleIsVector && !descIsVector && parsed.description) {
+        // Append the suffix. Ensure there is a period before it if not already valid punctuation.
+        // cleanSentence removes trailing dots, so we typically add ". Vector illustration"
+        // But if the description ended with "Vector" (without illustration), cleanSentence handles it above.
+        // This block handles complete absence.
+        
+        parsed.description = `${parsed.description}. ${vectorSuffix}`;
+    }
 
     // 2. Force Single-Word Keywords (Aggressive Splitter)
     if (parsed.keywords && Array.isArray(parsed.keywords)) {

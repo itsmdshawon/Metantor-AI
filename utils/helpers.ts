@@ -194,27 +194,27 @@ export function generateReport(items: FileItem[], platform: Platform, titleLenTa
         const descCount = m.description ? m.description.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
         const kwCount = Array.isArray(m.keywords) ? m.keywords.length : 0;
 
+        // Calculate differences
+        const titleDiff = titleCount - titleLenTarget;
+        const descDiff = descCount - descLenTarget;
+
+        const formatHeader = (label: string, count: number, target: number, diff: number) => {
+            const diffStr = diff === 0 
+                ? "Perfect match" 
+                : `${Math.abs(diff)} words ${diff > 0 ? 'over' : 'under'}`;
+            // Clean format: Single set of parentheses, pipe separators to avoid double brackets
+            return `${label} Breakdown (Target: ${target} words | Actual: ${count} words | ${diffStr})`;
+        };
+
         reportContent += `FILE ${index + 1}: ${item.file.name}\n`;
         reportContent += `STATS: Title: ${titleCount} words | Description: ${descCount} words | Keywords: ${kwCount} tags\n`;
         reportContent += `-------------------------------------------------\n`;
         
-        reportContent += `1. Title Analysis (Target ${titleLenTarget} words):\n`;
-        reportContent += `   ${exp.title_logic || 'N/A'}\n`;
-        if (titleCount > titleLenTarget) {
-            reportContent += `   (Note: Slightly longer to finish the sentence.)\n`;
-        } else if (titleCount < titleLenTarget) {
-            reportContent += `   (Note: Kept concise to ensure the sentence is natural and complete.)\n`;
-        }
-        reportContent += `\n`;
+        reportContent += `1. ${formatHeader("Title", titleCount, titleLenTarget, titleDiff)}:\n`;
+        reportContent += `   ${exp.title_logic || 'N/A'}\n\n`;
 
-        reportContent += `2. Description Analysis (Target ${descLenTarget} words):\n`;
-        reportContent += `   ${exp.description_logic || 'N/A'}\n`;
-        if (descCount > descLenTarget) {
-            reportContent += `   (Note: Slightly longer to include all details.)\n`;
-        } else if (descCount < descLenTarget) {
-            reportContent += `   (Note: Kept concise to ensure the sentence is natural and complete.)\n`;
-        }
-        reportContent += `\n`;
+        reportContent += `2. ${formatHeader("Description", descCount, descLenTarget, descDiff)}:\n`;
+        reportContent += `   ${exp.description_logic || 'N/A'}\n\n`;
 
         reportContent += `3. Keywords:\n   ${exp.keyword_logic || 'N/A'}\n\n`;
         reportContent += `4. Sales Strategy:\n   ${exp.sales_logic || 'N/A'}\n\n`;
