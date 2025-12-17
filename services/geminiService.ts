@@ -14,10 +14,10 @@ function getSystemPrompt(config: AppConfig): string {
         "description": "Detailed Subject. Style details. Context (No trailing dot)", 
         "keywords": ["tag1", "tag2", "tag3"],
         "explanation": {
-            "keyword_logic": "Explain...",
-            "title_logic": "Explain...",
-            "description_logic": "Explain...",
-            "sales_logic": "Strategy..."
+            "keyword_logic": "Explain why these keywords were chosen in simple English...",
+            "title_logic": "Explain the title structure in simple English...",
+            "description_logic": "Explain the description flow in simple English...",
+            "sales_logic": "Explain the sales strategy in simple English..."
         }
     `;
 
@@ -92,6 +92,12 @@ function getSystemPrompt(config: AppConfig): string {
     2. PUNCTUATION BETWEEN SENTENCES. 
        - You MUST use periods (.) or commas (,) to separate distinct ideas/sentences.
        - DO NOT generate run-on sentences.
+
+    *** REPORT EXPLANATION STYLE (VERY IMPORTANT) ***
+    1. SIMPLE ENGLISH ONLY: Write the "explanation" fields (title_logic, description_logic, etc.) in plain, simple language that anyone can understand.
+    2. NO JARGON: Do NOT use terms like "Style Guide B", "Microstock Stacking", or complex technical codes in the explanation text.
+    3. WORD COUNT EXPLANATION: If the Title or Description is shorter than the target length, simply explain that you stopped to keep the sentence natural and complete (no filler words). 
+    4. COMPLETE SENTENCES: Always ensure the generated Title and Description are grammatically complete sentences (except for the missing trailing dot).
 
     *** WRITING STYLE & LOGIC (CONTENT-TYPE SPECIFIC) ***
     Analyze the visual style of the image and select ONE of the following cases:

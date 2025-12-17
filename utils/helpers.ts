@@ -183,7 +183,7 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
 export function generateReport(items: FileItem[], platform: Platform, titleLenTarget: number, descLenTarget: number, kwCountTarget: number): string {
     const completed = items.filter(i => i.status === 'complete' && i.metadata && i.metadata.explanation);
     
-    let reportContent = "METADATA EXPLANATION REPORT\n";
+    let reportContent = "METADATA REPORT\n";
     reportContent += "=================================================\n\n";
 
     completed.forEach((item, index) => {
@@ -198,35 +198,40 @@ export function generateReport(items: FileItem[], platform: Platform, titleLenTa
         reportContent += `STATS: Title: ${titleCount} words | Description: ${descCount} words | Keywords: ${kwCount} tags\n`;
         reportContent += `-------------------------------------------------\n`;
         
-        reportContent += `1. Title Strategy (Target ${titleLenTarget} words):\n`;
+        reportContent += `1. Title Analysis (Target ${titleLenTarget} words):\n`;
         reportContent += `   ${exp.title_logic || 'N/A'}\n`;
         if (titleCount > titleLenTarget) {
-            reportContent += `   Note: Title count (${titleCount}) exceeded target (${titleLenTarget}) to ensure the sentence was grammatically complete.\n`;
+            reportContent += `   (Note: Slightly longer to finish the sentence.)\n`;
+        } else if (titleCount < titleLenTarget) {
+            reportContent += `   (Note: Kept concise to ensure the sentence is natural and complete.)\n`;
         }
         reportContent += `\n`;
 
-        reportContent += `2. Description Strategy (Target ${descLenTarget} words):\n`;
+        reportContent += `2. Description Analysis (Target ${descLenTarget} words):\n`;
         reportContent += `   ${exp.description_logic || 'N/A'}\n`;
         if (descCount > descLenTarget) {
-            reportContent += `   Note: Description count (${descCount}) extended slightly beyond target (${descLenTarget}) to fully describe the scene without being cut off.\n`;
+            reportContent += `   (Note: Slightly longer to include all details.)\n`;
+        } else if (descCount < descLenTarget) {
+            reportContent += `   (Note: Kept concise to ensure the sentence is natural and complete.)\n`;
         }
         reportContent += `\n`;
 
-        reportContent += `3. Keyword Logic (Target ${kwCountTarget} tags):\n   ${exp.keyword_logic || 'N/A'}\n\n`;
-        reportContent += `4. Sales & Visibility Strategy:\n   ${exp.sales_logic || 'N/A'}\n\n`;
+        reportContent += `3. Keywords:\n   ${exp.keyword_logic || 'N/A'}\n\n`;
+        reportContent += `4. Sales Strategy:\n   ${exp.sales_logic || 'N/A'}\n\n`;
         reportContent += "=================================================\n\n";
     });
 
     reportContent += "\n\n";
     reportContent += "#################################################\n";
-    reportContent += "               GLOBAL SUMMARY\n";
+    reportContent += "               SUMMARY\n";
     reportContent += "#################################################\n\n";
     
     reportContent += `Total Files Processed: ${completed.length}\n`;
     reportContent += `Platform Strategy: ${platform}\n\n`;
-    reportContent += "BATCH STRATEGY OVERVIEW:\n";
-    reportContent += "The metadata for this batch was generated with a strict focus on high-intent search terms. ";
-    reportContent += "By avoiding generic filler words and adhering to strict platform character limits, these assets are optimized to appear in targeted buyer searches rather than broad, low-conversion impressions.\n\n";
+    reportContent += "BATCH SUMMARY:\n";
+    reportContent += "This metadata was generated to help buyers find your images easily. ";
+    reportContent += "We focused on specific, relevant keywords rather than generic terms. ";
+    reportContent += "Titles and descriptions are written to be natural and readable. If they are slightly shorter than the maximum limit, it is to ensure the sentences are complete and make sense, without adding useless filler words.\n\n";
 
     return reportContent;
 }
