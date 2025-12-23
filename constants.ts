@@ -71,22 +71,18 @@ export const VECTORSTOCK_CATEGORIES = [
 
 export const AI_PROVIDERS = {
     'Google Gemini': [
-        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Fastest)' },
-        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Stable)' },
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Best Quality)' },
-        { id: 'gemini-robotics-er-1.5-preview', name: 'Gemini Robotics ER 1.5 (Preview)' }
+        { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Fastest)' },
+        { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Best Quality)' },
+        { id: 'gemini-2.5-flash-lite-latest', name: 'Gemini 2.5 Flash Lite' }
     ],
     'Groq Cloud': [
-        { id: 'llama-3.2-11b-vision-preview', name: 'Llama 3.2 11b Vision (Fast)' },
-        { id: 'llama-3.2-90b-vision-preview', name: 'Llama 3.2 90b Vision (High Quality)' },
-        { id: 'llama-4-maverick-17b', name: 'Llama 4 Maverick 17b (Beta)' }
+        { id: 'llama-3.2-11b-vision-preview', name: 'Llama 3.2 11b Vision' },
+        { id: 'llama-3.2-90b-vision-preview', name: 'Llama 3.2 90b Vision' }
     ],
     'xAI Grok': [
         { id: 'grok-2-vision-1212', name: 'Grok 2 Vision' }
     ],
     'Mistral AI': [
-        { id: 'pixtral-12b-2409', name: 'Pixtral 12b (Vision)' },
-        { id: 'mistral-small-latest', name: 'Mistral Small (Latest)' },
-        { id: 'mistral-large-latest', name: 'Mistral Large (Latest)' }
+        { id: 'pixtral-12b-2409', name: 'Pixtral 12b (Vision)' }
     ]
 };
