@@ -13,10 +13,10 @@ function getSystemPrompt(config: AppConfig): string {
         "description": "Detailed Subject. Style details. Context (End with: Vector illustration)", 
         "keywords": ["tag1", "tag2", "tag3"],
         "explanation": {
-            "keyword_logic": "Explain keyword choice...",
-            "title_logic": "Explain title structure.",
-            "description_logic": "Explain description flow.",
-            "sales_logic": "Explain sales potential..."
+            "keyword_logic": "In simple English, explain why you chose these keywords.",
+            "title_logic": "In simple English, explain why you used this title length and style.",
+            "description_logic": "In simple English, explain why you used this description length and style.",
+            "sales_logic": "In simple English, explain how this metadata helps sell the file."
         }
     `;
 
@@ -49,31 +49,31 @@ function getSystemPrompt(config: AppConfig): string {
     }
 
     return `
-    ROLE: Professional Microstock Metadata Specialist.
-    TASK: Generate metadata optimized for high-volume sales.
+    ROLE: Microstock Specialist.
+    TASK: Generate metadata for vectors.
 
-    *** MANDATORY SUFFIX RULE ***
-    - BOTH "title" and "description" MUST end with exactly: "Vector illustration"
-    - DO NOT put a period (.) after "Vector illustration".
-    - The dot should be BEFORE the suffix (e.g. "Realistic cat. Vector illustration").
+    *** MANDATORY SUFFIX ***
+    - BOTH "title" and "description" MUST end with: "Vector illustration"
+    - Do NOT put a period (.) after "Vector illustration".
+    - Put a period BEFORE the suffix (e.g., "A cute dog. Vector illustration").
 
     *** CATEGORY SELECTION ***
-    - YOU MUST CHOOSE FROM THE PROVIDED LISTS ONLY.
-    - NO deviation in spelling or punctuation.
+    - Choose ONLY from the provided lists. No changes allowed.
 
-    *** ANALYSIS RULES ***
-    - LOGO: If text is present, it is a LOGO. BANNED: Do not use "silhouette" for logos.
-    - SILHOUETTE: Only if solid black on white, no text.
+    *** SIMPLE LOGIC ***
+    - LOGO: If text is present, it is a LOGO. Do NOT use "silhouette".
+    - SILHOUETTE: Only for solid black shapes on white.
+    - EXPLANATION: Use simple English to explain your choices for the report.
 
     *** CONSTRAINTS ***
-    - PROMO BANNED: "download", "unique", "perfect", "stunning".
+    - NO BANNED WORDS: "download", "best", "stunning".
     - KEYWORDS: Single words only. Max ${config.kwCount}.
-    - TARGETS: Title ~${config.titleLen} words, Description ~${config.descLen} words.
+    - LENGTHS: Title ~${config.titleLen} words, Description ~${config.descLen} words.
 
     PLATFORM CATEGORIES:
     ${platformCategoryRules}
 
-    Output JSON: ${jsonStructure}
+    Output valid JSON: ${jsonStructure}
     `;
 }
 
@@ -97,11 +97,9 @@ function processResponse(text: string, config: AppConfig): Metadata {
             if (!lowerR.endsWith(suffix.toLowerCase())) {
                 r = r + ". " + suffix;
             } else {
-                // Ensure correct case for the suffix even if AI messed it up
                 const idx = lowerR.lastIndexOf(suffix.toLowerCase());
                 r = r.substring(0, idx) + suffix;
             }
-            // Double check trailing dot
             if (r.endsWith('.')) r = r.slice(0, -1);
             return r;
         };
@@ -122,7 +120,7 @@ function processResponse(text: string, config: AppConfig): Metadata {
 
         return parsed;
     } catch (e) {
-        throw new Error("Invalid AI response. Retrying...");
+        throw new Error("Invalid format. Retrying...");
     }
 }
 
@@ -145,7 +143,7 @@ async function callOpenAICompatible(endpoint: string, model: string, apiKey: str
             messages: [
                 { role: "system", content: prompt }, 
                 { role: "user", content: [
-                    { type: "text", text: "Generate JSON metadata." }, 
+                    { type: "text", text: "Generate metadata." }, 
                     { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                 ]}
             ],

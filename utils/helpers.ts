@@ -11,10 +11,8 @@ export function cleanText(text: string): string {
     // Normalize spaces
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
-    // STRICT: Only remove trailing period if the suffix is NOT "Vector illustration"
-    // However, since "Vector illustration" doesn't end in a dot, 
-    // simply checking if it ends with a dot and removing it is safe 
-    // because it will only remove dots AFTER the suffix if the AI added them.
+    // Remove trailing period ONLY if it's at the absolute end,
+    // as "Vector illustration" should not have a trailing dot.
     if (cleaned.endsWith('.')) {
         cleaned = cleaned.slice(0, -1);
     }
@@ -168,16 +166,47 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
 
 export function generateReport(items: FileItem[], platform: Platform, titleLenTarget: number, descLenTarget: number, kwCountTarget: number): string {
     const completed = items.filter(i => i.status === 'complete' && i.metadata && i.metadata.explanation);
-    let reportContent = "METADATA REPORT\n=================================================\n\n";
+    
+    let reportContent = "=================================================\n";
+    reportContent += "METADATA GENERATION REPORT SUMMARY\n";
+    reportContent += `Platform: ${platform}\n`;
+    reportContent += `Files Processed: ${completed.length}\n`;
+    reportContent += "=================================================\n\n";
+
     completed.forEach((item, index) => {
         const m = item.metadata!;
         const exp = m.explanation!;
+        
         const titleCount = m.title ? m.title.trim().split(/\s+/).length : 0;
         const descCount = m.description ? m.description.trim().split(/\s+/).length : 0;
+        const kwCount = m.keywords ? m.keywords.length : 0;
+
         reportContent += `FILE ${index + 1}: ${item.file.name}\n`;
-        reportContent += `Title Logic: ${exp.title_logic || 'N/A'}\n`;
-        reportContent += `Description Logic: ${exp.description_logic || 'N/A'}\n`;
+        reportContent += `STATS: Title: ${titleCount} words | Description: ${descCount} words | Keywords: ${kwCount} tags\n`;
         reportContent += `-------------------------------------------------\n\n`;
+        
+        // 1. Title Breakdown
+        const titleDiff = titleCount - titleLenTarget;
+        const titleStatus = titleDiff === 0 ? "Perfect" : (titleDiff > 0 ? `+${titleDiff} over` : `${titleDiff} under`);
+        reportContent += `1. Title Breakdown (Target: ${titleLenTarget} words | Actual: ${titleCount} words, ${titleStatus}):\n`;
+        reportContent += `   ${exp.title_logic || 'Explains how the title was built.'}\n\n`;
+
+        // 2. Description Breakdown
+        const descDiff = descCount - descLenTarget;
+        const descStatus = descDiff === 0 ? "Perfect" : (descDiff > 0 ? `+${descDiff} over` : `${descDiff} under`);
+        reportContent += `2. Description Breakdown (Target: ${descLenTarget} words | Actual: ${descCount} words, ${descStatus}):\n`;
+        reportContent += `   ${exp.description_logic || 'Explains how the description was built.'}\n\n`;
+
+        // 3. Why these Keywords? (Target)
+        reportContent += `3. Why these Keywords? (Target: ${kwCountTarget} tags | Actual: ${kwCount} tags):\n`;
+        reportContent += `   ${exp.keyword_logic || 'Explains the choice of keywords.'}\n\n`;
+
+        // 4. Sales Strategy
+        reportContent += `4. Sales Strategy:\n`;
+        reportContent += `   ${exp.sales_logic || 'Explains why this helps sales.'}\n\n`;
+        
+        reportContent += `=================================================\n\n`;
     });
+
     return reportContent;
 }
