@@ -82,9 +82,11 @@ function getSystemPrompt(config: AppConfig): string {
        - Focus on visual description first.
 
     *** CRITICAL KEYWORD RESTRICTIONS (FALSE POSITIVES) ***
-    1. "LOGO" / "ICON" / "APP" / "SYMBOL":
-       - DO NOT use these words unless the image is EXPLICITLY a functional design element.
-       - IF IN DOUBT, USE "Illustration" or "Drawing" INSTEAD OF "Logo".
+    1. "LOGO" / "ICON" / "APP" / "SYMBOL" / "BUTTON":
+       - DO NOT use these words for SILHOUETTES or ARTISTIC ILLUSTRATIONS. 
+       - If the image is a black shape on a white background (like a woman's profile, a dancer, an eagle, or a crown), it is a "Silhouette Illustration", NOT an "Icon".
+       - Functional design elements (UI buttons) only qualify as icons. 
+       - Artistic content = "Illustration".
 
     *** CRITICAL FORMATTING RULES (ALL IMAGES) ***
     1. NO PERIOD AT THE END. Never put a full stop (.) at the very end of the Title or Description.
@@ -92,7 +94,7 @@ function getSystemPrompt(config: AppConfig): string {
 
     *** CATEGORY SELECTION RULES (STRICT STRING MATCHING) ***
     1. YOU MUST COPY THE CATEGORY NAMES EXACTLY.
-    2. Adobe list: Note "Transport" and "Drinks".
+    2. Adobe list: Note "Transport" (no 'ation') and "Drinks" (plural).
     3. Shutterstock list: Note "Food and drink" (lowercase 'd'). Do not use "Food & Drink". Note "Animals/Wildlife" (no spaces around slash).
     4. ZERO TOLERANCE FOR SPELLING ERRORS.
 
@@ -103,15 +105,28 @@ function getSystemPrompt(config: AppConfig): string {
     *** WRITING STYLE & LOGIC (CONTENT-TYPE SPECIFIC) ***
     Analyze the visual style and select the appropriate CASE:
 
-    [CASE 1: ICONS & UI ELEMENTS (VECTOR)]
+    [CASE 1: FUNCTIONAL ICONS & UI ELEMENTS (VECTOR)]
+    - Subject: Functional UI elements (Settings, Home, Save).
     - Title/Description Suffix: "Vector illustration"
-    [CASE 2: CONTINUOUS LINE ART / DRAWINGS (VECTOR)]
+
+    [CASE 2: SILHOUETTES & BLACK/WHITE VECTOR ART]
+    - Subject: Artistic silhouettes (People, Animals, Objects in black/white).
+    - Title: [Subject] silhouette. [Style details]. Vector illustration
+    - Description: Stark black silhouette illustration of [Subject]. Vector illustration
+    - Keywords: "silhouette", "black", "white", "profile", "contour", "shape", "isolated".
+    - PROHIBITED WORDS: "icon", "app", "logo", "sign", "button".
+    - MANDATORY SUFFIX: "Vector illustration"
+
+    [CASE 3: CONTINUOUS LINE ART / DRAWINGS (VECTOR)]
     - Keywords: "continuous line drawing", "single line", "linear". Suffix: "Vector illustration"
-    [CASE 3: FLAT / 2D VECTOR-STYLE ILLUSTRATIONS]
+
+    [CASE 4: FLAT / 2D VECTOR-STYLE ILLUSTRATIONS]
     - Mandatory Title/Description Suffix: "Vector illustration"
-    [CASE 4: 3D RENDERS & RASTER ILLUSTRATIONS]
+
+    [CASE 5: 3D RENDERS & RASTER ILLUSTRATIONS]
     - STRICTLY NO "Vector" or "Vector illustration". Use "3D render" or "Digital art".
-    [CASE 5: REALISTIC PHOTOGRAPHS]
+
+    [CASE 6: REALISTIC PHOTOGRAPHS]
     - NO "Vector". Focus on subject and lighting.
 
     *** KEYWORD RULES ***
