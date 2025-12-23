@@ -4,14 +4,17 @@ import { FileItem, Metadata, Platform } from '../types';
 export function cleanText(text: string): string {
     if (!text) return "";
     
-    // STRICT WHITELIST: Only allow Letters (a-z, A-Z), Numbers (0-9), Spaces, Commas, and Periods.
-    // Replace everything else (like quotes, hyphens, brackets, slashes) with a space to prevent word merging.
+    // Whitelist common characters. 
+    // We allow letters, numbers, spaces, commas, and dots.
     let cleaned = text.replace(/[^a-zA-Z0-9\s,.]/g, ' ');
 
-    // Collapse multiple spaces into one and trim
+    // Normalize spaces
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
-    // STRICTLY remove trailing period if present, as requested
+    // STRICT: Only remove trailing period if the suffix is NOT "Vector illustration"
+    // However, since "Vector illustration" doesn't end in a dot, 
+    // simply checking if it ends with a dot and removing it is safe 
+    // because it will only remove dots AFTER the suffix if the AI added them.
     if (cleaned.endsWith('.')) {
         cleaned = cleaned.slice(0, -1);
     }
@@ -25,8 +28,6 @@ export function fileToBase64(file: File): Promise<string> {
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
-                // Resize logic: Max dimension 1536px
-                // This ensures the base64 string stays within Groq/OpenAI payload limits (~4MB)
                 const MAX_SIZE = 1536;
                 let width = img.width;
                 let height = img.height;
@@ -46,23 +47,18 @@ export function fileToBase64(file: File): Promise<string> {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) {
-                    reject(new Error("Could not get canvas context"));
+                    reject(new Error("Canvas context error"));
                     return;
                 }
                 
-                // Draw white background for transparent PNGs converted to JPEG
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Export as JPEG with 0.85 quality to save space
-                // This forces the output to be image/jpeg regardless of input
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                
-                // Return just the base64 data, stripping the "data:image/jpeg;base64," prefix
                 resolve(dataUrl.split(',')[1]);
             };
-            img.onerror = () => reject(new Error("Failed to load image"));
+            img.onerror = () => reject(new Error("Image load error"));
             img.src = e.target?.result as string;
         };
         reader.onerror = reject;
@@ -84,8 +80,6 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
     let rows: string[] = [];
     const completed = items.filter(i => i.status === 'complete' && i.metadata);
 
-    // Apply strict cleanText to all metadata fields before CSV generation
-    // This guarantees no special symbols (except , and .) appear in the CSV.
     const cleanItems = completed.map(item => {
         const m = item.metadata!;
         return {
@@ -111,21 +105,16 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
             ].join(',');
         });
     } else if (platform === 'Shutterstock') {
-        // Combined Categories into one column
         headers = ['Filename', 'Description', 'Keywords', 'Categories', 'Editorial', 'Mature content', 'illustration'];
         rows = cleanItems.map(item => {
             const m = item.metadata!;
-            // Combine main and optional with comma
             const categories = [m.shutterstock_main, m.shutterstock_optional].filter(Boolean).join(', ');
-            
             return [
                 escapeCsv(getFilename(item.file.name, extensionMode)),
                 escapeCsv(m.description),
                 escapeCsv((m.keywords || []).join(', ')),
-                escapeCsv(categories), // Combined Categories
-                '"no"', // Editorial
-                '"no"', // Mature content
-                '"yes"' // illustration
+                escapeCsv(categories),
+                '"no"', '"no"', '"yes"'
             ].join(',');
         });
     } else if (platform === 'Vecteezy') {
@@ -152,7 +141,6 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
             ].join(',');
         });
     } else {
-        // General
         headers = [
             'File Name', 'Title', 'Description', 'Keywords', 
             'Adobe Stock Category', 'Shutterstock Main Category',
@@ -161,14 +149,12 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
         ];
         rows = cleanItems.map(item => {
             const m = item.metadata!;
-            let adobeC = m.adobe_category || m.category || '';
-            
             return [
                 escapeCsv(getFilename(item.file.name, extensionMode)),
                 escapeCsv(m.title),
                 escapeCsv(m.description),
                 escapeCsv((m.keywords || []).join(', ')),
-                escapeCsv(adobeC),
+                escapeCsv(m.adobe_category || m.category || ''),
                 escapeCsv(m.shutterstock_main),
                 escapeCsv(m.shutterstock_optional),
                 escapeCsv(m.vectorstock_primary),
@@ -182,59 +168,16 @@ export function generateCsv(items: FileItem[], platform: Platform, extensionMode
 
 export function generateReport(items: FileItem[], platform: Platform, titleLenTarget: number, descLenTarget: number, kwCountTarget: number): string {
     const completed = items.filter(i => i.status === 'complete' && i.metadata && i.metadata.explanation);
-    
-    let reportContent = "METADATA REPORT\n";
-    reportContent += "=================================================\n\n";
-
+    let reportContent = "METADATA REPORT\n=================================================\n\n";
     completed.forEach((item, index) => {
         const m = item.metadata!;
         const exp = m.explanation!;
-
-        const titleCount = m.title ? m.title.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
-        const descCount = m.description ? m.description.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
-        const kwCount = Array.isArray(m.keywords) ? m.keywords.length : 0;
-
-        // Calculate differences
-        const titleDiff = titleCount - titleLenTarget;
-        const descDiff = descCount - descLenTarget;
-
-        const formatHeader = (label: string, count: number, target: number, diff: number) => {
-            const diffStr = diff === 0 
-                ? "Perfect match" 
-                : `${Math.abs(diff)} words ${diff > 0 ? 'over' : 'under'}`;
-            // Clean format: Single set of parentheses, pipe separators to avoid double brackets
-            return `${label} Breakdown (Target: ${target} words | Actual: ${count} words | ${diffStr})`;
-        };
-
+        const titleCount = m.title ? m.title.trim().split(/\s+/).length : 0;
+        const descCount = m.description ? m.description.trim().split(/\s+/).length : 0;
         reportContent += `FILE ${index + 1}: ${item.file.name}\n`;
-        reportContent += `STATS: Title: ${titleCount} words | Description: ${descCount} words | Keywords: ${kwCount} tags\n`;
-        reportContent += `-------------------------------------------------\n`;
-        
-        reportContent += `1. ${formatHeader("Title", titleCount, titleLenTarget, titleDiff)}:\n`;
-        reportContent += `   ${exp.title_logic || 'N/A'}\n\n`;
-
-        reportContent += `2. ${formatHeader("Description", descCount, descLenTarget, descDiff)}:\n`;
-        reportContent += `   ${exp.description_logic || 'N/A'}\n\n`;
-
-        reportContent += `3. Keywords:\n   ${exp.keyword_logic || 'N/A'}\n\n`;
-        reportContent += `4. Sales Strategy:\n   ${exp.sales_logic || 'N/A'}\n\n`;
-        reportContent += "=================================================\n\n";
+        reportContent += `Title Logic: ${exp.title_logic || 'N/A'}\n`;
+        reportContent += `Description Logic: ${exp.description_logic || 'N/A'}\n`;
+        reportContent += `-------------------------------------------------\n\n`;
     });
-
-    reportContent += "\n\n";
-    reportContent += "#################################################\n";
-    reportContent += "               SUMMARY\n";
-    reportContent += "#################################################\n\n";
-    
-    reportContent += `Total Files Processed: ${completed.length}\n`;
-    reportContent += `Platform Strategy: ${platform}\n\n`;
-    reportContent += "OVERVIEW:\n";
-    reportContent += "This metadata strategy is designed to maximize your content's visibility and sales potential across major stock platforms. ";
-    reportContent += "We have prioritized high-relevance, descriptive keywords over broad, generic terms to target buyers with specific purchasing intent. ";
-    reportContent += "Titles and descriptions are crafted to be natural, professional, and grammatically complete, ensuring strict adherence to platform guidelines and avoiding rejection. ";
-    reportContent += "By focusing on the unique visual and conceptual elements of each image, we ensure your content ranks higher in relevant search results. ";
-    reportContent += "If specific text fields are slightly shorter than the maximum character limit, this is intentional: we prioritize concise, meaningful descriptions that convert, rather than filling space with irrelevant filler words. ";
-    reportContent += "This professional approach is designed to build a high-quality portfolio that performs consistently over time.\n\n";
-
     return reportContent;
 }

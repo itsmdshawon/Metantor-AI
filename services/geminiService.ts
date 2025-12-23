@@ -9,74 +9,71 @@ function getSystemPrompt(config: AppConfig): string {
     let jsonStructure = "";
 
     const baseJsonFields = `
-        "title": "Subject. Style. Context (No trailing dot)", 
-        "description": "Detailed Subject. Style details. Context (No trailing dot)", 
+        "title": "Subject. Style. Context (End with: Vector illustration)", 
+        "description": "Detailed Subject. Style details. Context (End with: Vector illustration)", 
         "keywords": ["tag1", "tag2", "tag3"],
         "explanation": {
             "keyword_logic": "Explain keyword choice...",
-            "title_logic": "Explain title structure. DO NOT mention word counts.",
-            "description_logic": "Explain description flow. DO NOT mention word counts.",
+            "title_logic": "Explain title structure.",
+            "description_logic": "Explain description flow.",
             "sales_logic": "Explain sales potential..."
         }
     `;
 
-    // Strict strings for the prompt
     const adobeList = ADOBE_CATEGORIES.join(', ');
     const ssList = SHUTTERSTOCK_CATEGORIES.join(', ');
     const vsList = VECTORSTOCK_CATEGORIES.join(', ');
 
     if (config.platform === 'General') {
         platformCategoryRules = `
-        MANDATORY: You MUST choose EXACT matches from these lists. No modifications!
-        - "adobe_category": Choose exactly ONE from [${adobeList}]
-        - "shutterstock_main": Choose exactly ONE from [${ssList}]
-        - "shutterstock_optional": Choose exactly ONE from [${ssList}]
-        - "vectorstock_primary": Choose exactly ONE from [${vsList}]
-        - "vectorstock_secondary": Choose exactly ONE from [${vsList}]
+        MANDATORY: Choose categories EXACTLY from these lists:
+        - "adobe_category": One from [${adobeList}]
+        - "shutterstock_main": One from [${ssList}]
+        - "shutterstock_optional": One from [${ssList}]
+        - "vectorstock_primary": One from [${vsList}]
+        - "vectorstock_secondary": One from [${vsList}]
         `;
         jsonStructure = `{ ${baseJsonFields}, "adobe_category": "...", "shutterstock_main": "...", "shutterstock_optional": "...", "vectorstock_primary": "...", "vectorstock_secondary": "..." }`;
     } else if (config.platform === 'Shutterstock') {
-        platformCategoryRules = `MANDATORY: "shutterstock_main" and "shutterstock_optional" MUST be EXACT matches from [${ssList}]`;
+        platformCategoryRules = `MANDATORY: "shutterstock_main" and "shutterstock_optional" from [${ssList}]`;
         jsonStructure = `{ ${baseJsonFields}, "shutterstock_main": "...", "shutterstock_optional": "..." }`;
     } else if (config.platform === 'Vecteezy') {
         platformCategoryRules = `No category needed.`;
         jsonStructure = `{ ${baseJsonFields} }`;
     } else if (config.platform === 'VectorStock') {
-        platformCategoryRules = `MANDATORY: "vectorstock_primary" and "vectorstock_secondary" MUST be EXACT matches from [${vsList}]`;
+        platformCategoryRules = `MANDATORY: "vectorstock_primary" and "vectorstock_secondary" from [${vsList}]`;
         jsonStructure = `{ ${baseJsonFields}, "vectorstock_primary": "...", "vectorstock_secondary": "..." }`;
     } else {
-        // Adobe Stock
-        platformCategoryRules = `MANDATORY: "category" MUST be an EXACT match from [${adobeList}]`;
+        platformCategoryRules = `MANDATORY: "category" from [${adobeList}]`;
         jsonStructure = `{ ${baseJsonFields}, "category": "..." }`;
     }
 
     return `
-    ROLE: Elite Microstock Metadata Specialist.
+    ROLE: Professional Microstock Metadata Specialist.
     TASK: Generate metadata optimized for high-volume sales.
 
-    *** STEP 1: VISUAL ANALYSIS ***
-    - Check for TEXT/TYPE (Company, Slogan, Brand, Placeholder). 
-      If present: Classify as LOGO. BANNED: Do not use the word "silhouette".
-    - Check for SOLID SHAPE (Black on white, NO text).
-      If present: Classify as SILHOUETTE.
-    - Check for STYLE: Line art, POD graphic, or Vector illustration.
+    *** MANDATORY SUFFIX RULE ***
+    - BOTH "title" and "description" MUST end with exactly: "Vector illustration"
+    - DO NOT put a period (.) after "Vector illustration".
+    - The dot should be BEFORE the suffix (e.g. "Realistic cat. Vector illustration").
 
-    *** STEP 2: CATEGORY SELECTION (STRICT) ***
-    - YOU MUST SELECT ONLY FROM THE PROVIDED LISTS.
-    - DO NOT change spelling, punctuation, or pluralization.
-    - If you invent a category, the task fails.
+    *** CATEGORY SELECTION ***
+    - YOU MUST CHOOSE FROM THE PROVIDED LISTS ONLY.
+    - NO deviation in spelling or punctuation.
 
-    *** STEP 3: METADATA SPECS ***
-    - SUFFIX: Title and Description MUST end with "Vector illustration".
-    - NO PERIODS: Do not put a period (.) at the end of the text.
-    - PROMO BANNED: No "download", "unique", "perfect", "stunning".
+    *** ANALYSIS RULES ***
+    - LOGO: If text is present, it is a LOGO. BANNED: Do not use "silhouette" for logos.
+    - SILHOUETTE: Only if solid black on white, no text.
+
+    *** CONSTRAINTS ***
+    - PROMO BANNED: "download", "unique", "perfect", "stunning".
     - KEYWORDS: Single words only. Max ${config.kwCount}.
     - TARGETS: Title ~${config.titleLen} words, Description ~${config.descLen} words.
 
-    *** PLATFORM LISTS ***
+    PLATFORM CATEGORIES:
     ${platformCategoryRules}
 
-    Final JSON Output: ${jsonStructure}
+    Output JSON: ${jsonStructure}
     `;
 }
 
@@ -90,47 +87,42 @@ function processResponse(text: string, config: AppConfig): Metadata {
     try {
         const parsed: Metadata = JSON.parse(jsonStr);
         
-        const clean = (s: string) => {
+        const forceSuffix = (s: string) => {
             if (!s) return "";
             let r = s.replace(/\s+/g, ' ').trim();
-            // Remove any trailing period before appending suffix
             if (r.endsWith('.')) r = r.slice(0, -1);
             
             const suffix = "Vector illustration";
             const lowerR = r.toLowerCase();
             if (!lowerR.endsWith(suffix.toLowerCase())) {
                 r = r + ". " + suffix;
+            } else {
+                // Ensure correct case for the suffix even if AI messed it up
+                const idx = lowerR.lastIndexOf(suffix.toLowerCase());
+                r = r.substring(0, idx) + suffix;
             }
-            // Ensure no trailing period at the very end
+            // Double check trailing dot
             if (r.endsWith('.')) r = r.slice(0, -1);
-            
-            // Clean up double suffixes if AI hallucinated
-            r = r.replace(/vector illustration\.? vector illustration/gi, 'Vector illustration');
-            if (r.endsWith('.')) r = r.slice(0, -1);
-            
             return r;
         };
 
-        if (parsed.title) parsed.title = clean(parsed.title);
-        if (parsed.description) parsed.description = clean(parsed.description);
+        if (parsed.title) parsed.title = forceSuffix(parsed.title);
+        if (parsed.description) parsed.description = forceSuffix(parsed.description);
 
         if (parsed.keywords) {
             const isLogo = parsed.title?.toLowerCase().includes('logo') || parsed.description?.toLowerCase().includes('logo');
-            
             const words = parsed.keywords.flatMap(k => 
                 k.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/)
             ).filter(w => {
-                // Final safety check to keep "silhouette" out of logos
                 if (isLogo && w === 'silhouette') return false;
                 return w.length > 2 && !['and', 'the', 'for', 'with'].includes(w);
             });
-            
             parsed.keywords = [...new Set(words)].slice(0, config.kwCount);
         }
 
         return parsed;
     } catch (e) {
-        throw new Error("AI returned invalid JSON formatting. Please retry.");
+        throw new Error("Invalid AI response. Retrying...");
     }
 }
 
@@ -138,14 +130,8 @@ async function callGemini(model: string, apiKey: string, base64: string, prompt:
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
         model,
-        contents: { 
-            role: "user", 
-            parts: [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: base64 } }] 
-        },
-        config: { 
-            responseMimeType: "application/json", 
-            temperature: 0.1 
-        }
+        contents: { parts: [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: base64 } }] },
+        config: { responseMimeType: "application/json", temperature: 0.1 }
     });
     return processResponse(response.text || "{}", config);
 }
@@ -159,7 +145,7 @@ async function callOpenAICompatible(endpoint: string, model: string, apiKey: str
             messages: [
                 { role: "system", content: prompt }, 
                 { role: "user", content: [
-                    { type: "text", text: "Analyze image and generate metadata JSON." }, 
+                    { type: "text", text: "Generate JSON metadata." }, 
                     { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                 ]}
             ],
@@ -167,7 +153,7 @@ async function callOpenAICompatible(endpoint: string, model: string, apiKey: str
             response_format: { type: "json_object" }
         })
     });
-    if (!response.ok) throw new Error(`API Connection Failed: ${response.status}`);
+    if (!response.ok) throw new Error(`API Error ${response.status}`);
     const data = await response.json();
     return processResponse(data.choices?.[0]?.message?.content || "{}", config);
 }
@@ -175,12 +161,10 @@ async function callOpenAICompatible(endpoint: string, model: string, apiKey: str
 export async function generateMetadata(base64: string, mime: string, config: AppConfig, key: string): Promise<Metadata> {
     const prompt = getSystemPrompt(config);
     if (config.provider === 'Google Gemini') return callGemini(config.model, key, base64, prompt, config);
-    
     const endpoints: Record<string, string> = {
         'Groq Cloud': "https://api.groq.com/openai/v1/chat/completions",
         'xAI Grok': "https://api.x.ai/v1/chat/completions",
         'Mistral AI': "https://api.mistral.ai/v1/chat/completions"
     };
-    
     return callOpenAICompatible(endpoints[config.provider], config.model, key, base64, prompt, config);
 }
