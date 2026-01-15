@@ -63,26 +63,28 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
         
         const badges: React.ReactNode[] = [];
 
+        // Adobe Stock: Sky Blue theme
         if (metadata.adobe_category) {
-            badges.push(<div key="adobe" className="text-[10px] text-red-400 bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50 inline-block mr-1 mb-1" title="Adobe Category">Ad: {metadata.adobe_category}</div>);
+            badges.push(<div key="adobe" className="text-[10px] text-sky-400 bg-sky-950/30 px-2 py-0.5 rounded border border-sky-900/50 inline-block mr-1 mb-1" title="Adobe Category">Ad: {metadata.adobe_category}</div>);
         }
         
-        // Shutterstock: Combined
+        // Shutterstock: Sky Blue theme (combined for consistency)
         if (metadata.shutterstock_main) {
             const combined = [metadata.shutterstock_main, metadata.shutterstock_optional].filter(Boolean).join(', ');
-            badges.push(<div key="ss" className="text-[10px] text-red-400 bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50 inline-block mr-1 mb-1" title="Shutterstock Categories">SS: {combined}</div>);
+            badges.push(<div key="ss" className="text-[10px] text-sky-400 bg-sky-950/30 px-2 py-0.5 rounded border border-sky-900/50 inline-block mr-1 mb-1" title="Shutterstock Categories">SS: {combined}</div>);
         }
         
+        // VectorStock: Teal/Emerald theme
         if (metadata.vectorstock_primary) {
-            badges.push(<div key="vs1" className="text-[10px] text-amber-400 bg-amber-950/30 px-2 py-0.5 rounded border border-amber-900/50 inline-block mr-1 mb-1" title="VectorStock Primary">VS1: {metadata.vectorstock_primary}</div>);
+            badges.push(<div key="vs1" className="text-[10px] text-teal-400 bg-teal-950/30 px-2 py-0.5 rounded border border-teal-900/50 inline-block mr-1 mb-1" title="VectorStock Primary">VS1: {metadata.vectorstock_primary}</div>);
         }
         if (metadata.vectorstock_secondary) {
-            badges.push(<div key="vs2" className="text-[10px] text-amber-400/70 bg-amber-950/20 px-2 py-0.5 rounded border border-amber-900/30 inline-block mr-1 mb-1" title="VectorStock Secondary">VS2: {metadata.vectorstock_secondary}</div>);
+            badges.push(<div key="vs2" className="text-[10px] text-teal-400/80 bg-teal-950/20 px-2 py-0.5 rounded border border-teal-900/30 inline-block mr-1 mb-1" title="VectorStock Secondary">VS2: {metadata.vectorstock_secondary}</div>);
         }
         
-        // Single platform fallback
+        // Single platform fallback: Consistent with Adobe/SS theme
         if (badges.length === 0 && metadata.category && platform !== 'General') {
-             badges.push(<div key="single" className="text-[10px] text-blue-400 bg-blue-950/30 px-2 py-0.5 rounded border border-blue-900/50">{metadata.category}</div>);
+             badges.push(<div key="single" className="text-[10px] text-sky-400 bg-sky-950/30 px-2 py-0.5 rounded border border-sky-900/50">{metadata.category}</div>);
         }
 
         return badges.length > 0 ? badges : '-';
@@ -154,7 +156,7 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
 
                 {item.status === 'complete' && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-emerald-950/50 border border-emerald-800/60 text-emerald-400 tracking-wider">
-                        <Check className="w-3 h-3" /> SUCCESS
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> SUCCESS
                     </span>
                 )}
                 {item.status === 'error' && (
