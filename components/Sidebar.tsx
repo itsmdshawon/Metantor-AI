@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, ChevronDown, X, Bot, Cpu, Sparkles, FileJson, Save, SlidersHorizontal, Key, Filter, ChevronLeftSquare, ChevronRightSquare, Ban, Tags, Check, Gauge } from 'lucide-react';
+import { Settings2, ChevronDown, X, Bot, Cpu, Sparkles, FileJson, Save, SlidersHorizontal, Key, Filter, ChevronLeftSquare, ChevronRightSquare, Ban, Tags, Check } from 'lucide-react';
 import { AppConfig, AiProvider } from '../types';
 import { AI_PROVIDERS } from '../constants';
 
@@ -286,6 +286,37 @@ const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                         </div>
                     </div>
+
+                    <div className="h-px bg-gray-800/50 w-full"></div>
+
+                    {/* Custom Prompt Section - Restored */}
+                    <div className="space-y-4 px-1">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-slate-500 flex items-center gap-2 uppercase tracking-widest">
+                                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                                Custom Instructions
+                            </label>
+                            <button 
+                                onClick={() => handleChange('useCustomPrompt', !config.useCustomPrompt)}
+                                className={`w-8 h-4 rounded-full relative transition-colors duration-200 focus:outline-none ${config.useCustomPrompt ? 'bg-blue-600' : 'bg-gray-800'}`}
+                            >
+                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${config.useCustomPrompt ? 'left-4.5' : 'left-0.5'}`} />
+                            </button>
+                        </div>
+                        
+                        {config.useCustomPrompt && (
+                            <div className="animate-fadeIn">
+                                <textarea 
+                                    value={config.customPrompt}
+                                    onChange={(e) => handleChange('customPrompt', e.target.value)}
+                                    placeholder="e.g. Focus on moody lighting, mention a smiling person, or use formal language..."
+                                    className="w-full bg-[#151a25] border border-gray-700 rounded-xl px-3 py-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500/50 min-h-[100px] resize-none custom-scrollbar shadow-inner"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="h-px bg-gray-800/50 w-full"></div>
 
                     <div className="space-y-6 px-1">
                         <label className="text-[10px] font-black text-slate-500 flex items-center gap-2 uppercase tracking-widest">
