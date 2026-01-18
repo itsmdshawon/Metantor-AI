@@ -289,7 +289,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                     <div className="h-px bg-gray-800/50 w-full"></div>
 
-                    {/* Custom Prompt Section - Restored */}
+                    {/* Custom Prompt Section */}
                     <div className="space-y-4 px-1">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] font-black text-slate-500 flex items-center gap-2 uppercase tracking-widest">
