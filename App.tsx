@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Analytics } from '@vercel/analytics/react';
 import Header from './components/Header';
 import Sidebar from './Sidebar';
 import FileTable from './components/FileTable';
@@ -358,7 +357,6 @@ const App: React.FC = () => {
             <ImageModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
             <ApiKeyModal isOpen={showApiModal} onClose={() => setShowApiModal(false)} apiKeys={providerKeys[config.provider]} onAddKey={(k) => setProviderKeys(prev => ({ ...prev, [config.provider]: [...prev[config.provider], k] }))} onRemoveKey={(i) => setProviderKeys(prev => ({ ...prev, [config.provider]: prev[config.provider].filter((_, idx) => idx !== i) }))} forceOpen={false} provider={config.provider} />
             <CommunityHub isOpen={showCommunityHub} onClose={() => setShowCommunityHub(false)} />
-            <Analytics />
         </div>
     );
 };
