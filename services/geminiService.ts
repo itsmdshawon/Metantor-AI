@@ -81,7 +81,6 @@ function finalizeMetadata(metadata: Metadata, config: AppConfig): Metadata {
     const suffix = config.suffixActive ? (config.suffixText || "") : "";
 
     // 1. CLEANING UTILITY
-    // Aggressively remove common AI separators and trailing/leading noise
     const cleanSeparators = (str: string) => {
         return str.replace(/^[.\s:,\-_|]+/, '').replace(/[.\s:,\-_|]+$/, '').trim();
     };
@@ -89,14 +88,11 @@ function finalizeMetadata(metadata: Metadata, config: AppConfig): Metadata {
     let body = cleanSeparators(titleRaw);
 
     // 2. THE ULTIMATE DE-DUPLICATION GATEKEEPER
-    // We strip user prefix/suffix recursively from BOTH ends. 
-    // We also strip "partial" matches or versions with trailing dots (AI often adds a dot to its thought).
     const stripTarget = (text: string, target: string) => {
         if (!target.trim()) return text;
         let result = text;
         const normalizedTarget = target.trim().toLowerCase();
         
-        // Versatile matches: "Target", "Target.", ".Target", "Target:"
         const variants = [
             normalizedTarget,
             normalizedTarget + ".",
@@ -112,13 +108,11 @@ function finalizeMetadata(metadata: Metadata, config: AppConfig): Metadata {
             const currentLower = result.toLowerCase();
             
             for (const variant of variants) {
-                // Strip from START
                 if (currentLower.startsWith(variant)) {
                     result = result.substring(variant.length);
                     result = cleanSeparators(result);
                     changed = true;
                 }
-                // Strip from END
                 if (currentLower.endsWith(variant)) {
                     result = result.substring(0, result.length - variant.length);
                     result = cleanSeparators(result);
@@ -129,11 +123,9 @@ function finalizeMetadata(metadata: Metadata, config: AppConfig): Metadata {
         return result;
     };
 
-    // Strip Prefix and Suffix from everywhere in the AI response body to ensure total clean
     body = stripTarget(body, prefix);
     body = stripTarget(body, suffix);
 
-    // 3. Negative Title Word Filtering on the stripped body
     if (config.negativeTitleActive && config.negativeTitleWords) {
         const negWords = config.negativeTitleWords.split(',').map(w => w.trim()).filter(Boolean);
         negWords.forEach(word => {
@@ -143,13 +135,10 @@ function finalizeMetadata(metadata: Metadata, config: AppConfig): Metadata {
         });
     }
 
-    // 4. Final Construction
-    // Apply user strings exactly. cleanText ensures character sanitization.
     const cleanBodyTitle = cleanText(body);
     const finalTitle = prefix + cleanBodyTitle + suffix;
     const finalDescription = cleanText(cleanSeparators(descRaw));
 
-    // 5. Keywords Logic
     let processedKeywords: string[] = [];
     rawKeywords.forEach(kw => {
         const fragments = String(kw).split(/[^a-zA-Z0-9]/);
@@ -292,8 +281,13 @@ export async function generateMetadata(base64: string, mime: string, config: App
                     }
                 });
                 rawResponse = response.text || "";
-                lastError = null;
-                break;
+                
+                // Final validation inside the loop to catch bad Gemini JSON (rare but possible)
+                let cleanJson = rawResponse.trim();
+                const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+                if (jsonMatch) cleanJson = jsonMatch[0];
+                let parsed: Metadata = JSON.parse(cleanJson);
+                return finalizeMetadata(parsed, config);
             } catch (e: any) {
                 lastError = e;
                 const errMsg = e.message?.toLowerCase() || "";
@@ -301,28 +295,44 @@ export async function generateMetadata(base64: string, mime: string, config: App
                 await new Promise(r => setTimeout(r, 2000 * (i + 1))); 
             }
         }
-        if (lastError) throw lastError;
+        throw lastError || new Error("Invalid format from AI.");
     } else {
+        // Mistral / Groq Logic with dedicated Formatting Retry Loop
         const apiKey = manualApiKey || process.env.API_KEY || "";
         if (!apiKey) throw new Error("Missing API Key");
+        
         const endpoints: Record<string, string> = {
             'Groq Cloud': "https://api.groq.com/openai/v1/chat/completions",
             'Mistral AI': "https://api.mistral.ai/v1/chat/completions"
         };
-        rawResponse = await callOpenAICompatible(endpoints[config.provider], apiKey, config.model, base64, prompt);
-    }
+        
+        const maxParsingRetries = config.model === 'pixtral-12b-latest' ? 5 : 3;
+        let lastParsingError: any = null;
 
-    if (!rawResponse) throw new Error("Empty AI response");
-    
-    try {
-        let cleanJson = rawResponse.trim();
-        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleanJson = jsonMatch[0];
-        let parsed: Metadata = JSON.parse(cleanJson);
+        for (let attempt = 0; attempt < maxParsingRetries; attempt++) {
+            try {
+                rawResponse = await callOpenAICompatible(endpoints[config.provider], apiKey, config.model, base64, prompt);
+                if (!rawResponse) throw new Error("Empty AI response");
 
-        const result = finalizeMetadata(parsed, config);
-        return result;
-    } catch (e) {
-        throw new Error("Invalid format from AI.");
+                let cleanJson = rawResponse.trim();
+                const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+                if (jsonMatch) cleanJson = jsonMatch[0];
+                
+                let parsed: Metadata = JSON.parse(cleanJson);
+                // Basic validation of fields
+                if (!parsed.title || !parsed.keywords) throw new Error("Incomplete metadata");
+                
+                return finalizeMetadata(parsed, config);
+            } catch (e) {
+                lastParsingError = e;
+                // If it's a JSON/Formatting error, wait briefly and retry the AI call
+                if (attempt < maxParsingRetries - 1) {
+                    const delay = config.model === 'pixtral-12b-latest' ? 3000 : 1000;
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+            }
+        }
+        throw lastParsingError || new Error("Invalid format from AI.");
     }
 }
