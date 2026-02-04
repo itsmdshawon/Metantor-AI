@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Plus, Sparkles, Download, Trash2, Menu, RefreshCw, Users, FileText, Key } from 'lucide-react';
+import { Plus, Sparkles, Download, Trash2, Menu, RefreshCw, Users, FileText, Info } from 'lucide-react';
 import { Platform } from '../types';
 
 interface HeaderProps {
@@ -98,10 +99,23 @@ const Header: React.FC<HeaderProps> = ({
                         <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
                         <span className="leading-none">Add Images</span>
                     </button>
-                    <button onClick={onGenerate} disabled={!canGenerate || isProcessing} className={`flex items-center gap-2 px-5 py-2.5 border text-xs font-bold rounded-xl transition-all whitespace-nowrap active:scale-95 ${isResume && !isProcessing ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400/20 shadow-lg shadow-amber-900/20' : canGenerate && !isProcessing ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-400/20 shadow-lg shadow-blue-900/20' : 'bg-[#141824] border-gray-800 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed'}`}>
-                        {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : isResume ? <RefreshCw className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                        <span className="leading-none">{isProcessing ? 'Processing...' : isResume ? 'Re-Generate' : 'Generate'}</span>
-                    </button>
+                    
+                    <div className="flex items-center gap-3">
+                        {/* Guidance message for Re-Generate button */}
+                        {isResume && !isProcessing && (
+                            <div className="hidden sm:flex flex-col items-end mr-1 animate-fadeIn">
+                                <span className="text-[10px] text-amber-500 font-black uppercase tracking-widest animate-pulse flex items-center gap-1">
+                                    <Info className="w-3 h-3" /> Action Required
+                                </span>
+                                <span className="text-[9px] text-slate-500 font-bold whitespace-nowrap">Change model & click Re-Generate</span>
+                            </div>
+                        )}
+                        
+                        <button onClick={onGenerate} disabled={!canGenerate || isProcessing} className={`flex items-center gap-2 px-5 py-2.5 border text-xs font-bold rounded-xl transition-all whitespace-nowrap active:scale-95 ${isResume && !isProcessing ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400/20 shadow-lg shadow-amber-900/20' : canGenerate && !isProcessing ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-400/20 shadow-lg shadow-blue-900/20' : 'bg-[#141824] border-gray-800 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed'}`}>
+                            {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : isResume ? <RefreshCw className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                            <span className="leading-none">{isProcessing ? 'Processing...' : isResume ? 'Re-Generate' : 'Generate'}</span>
+                        </button>
+                    </div>
                     
                     {/* Export controls appear only when everything is completed and not currently processing */}
                     {canExport && !isProcessing && (
