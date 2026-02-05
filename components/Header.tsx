@@ -107,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({
                                 <span className="text-[10px] text-amber-500 font-black uppercase tracking-widest animate-pulse flex items-center gap-1">
                                     <Info className="w-3 h-3" /> Action Required
                                 </span>
-                                <span className="text-[9px] text-slate-500 font-bold whitespace-nowrap">Change model & click Re-Generate</span>
+                                <span className="text-[9px] text-slate-500 font-bold whitespace-nowrap">Try re-generating first. If that fails, change model & retry.</span>
                             </div>
                         )}
                         

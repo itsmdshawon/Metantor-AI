@@ -162,14 +162,12 @@ const TableRow: React.FC<{ item: FileItem, platform: Platform, onPreview: (url: 
                 )}
                 {item.status === 'error' && (
                     <div className="flex flex-col items-end gap-1">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-red-950/30 border border-red-800/40 text-red-400/90 tracking-wider cursor-help">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold bg-amber-950/30 border border-amber-800/40 text-amber-400/90 tracking-wider cursor-help">
                             <RefreshCw className="w-3 h-3" /> RETRY NEEDED
                         </span>
                         {item.errorMsg && (
                             <span className="text-[9px] font-bold text-slate-500 max-w-[140px] text-right leading-tight" title={item.errorMsg}>
-                                {item.errorMsg.includes('Connection failed') 
-                                    ? 'Change AI model & Regenerate' 
-                                    : 'Limit reached. Try another model.'}
+                                Please try again after the current batch has finished.
                             </span>
                         )}
                     </div>
