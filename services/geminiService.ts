@@ -81,14 +81,12 @@ function finalizeMetadata(metadata: Metadata, config: AppConfig): Metadata {
     const prefix = config.prefixActive ? (config.prefixText || "") : "";
     const suffix = config.suffixActive ? (config.suffixText || "") : "";
 
-    // 1. CLEANING UTILITY
     const cleanSeparators = (str: string) => {
         return str.replace(/^[.\s:,\-_|]+/, '').replace(/[.\s:,\-_|]+$/, '').trim();
     };
 
     let body = cleanSeparators(titleRaw);
 
-    // 2. THE ULTIMATE DE-DUPLICATION GATEKEEPER
     const stripTarget = (text: string, target: string) => {
         if (!target.trim()) return text;
         let result = text;
@@ -187,8 +185,8 @@ async function callOpenAICompatible(
 
     for (let attempt = 0; attempt <= maxInternalRetries; attempt++) {
         const controller = new AbortController();
-        // Pixtral Vision needs a much longer timeout (180s) for batch processing reliability
-        const timeoutMs = isPixtral ? 180000 : (isMistral ? 60000 : 90000);
+        // Reliability fix: 180s timeout specifically for Pixtral processing deep vision tasks.
+        const timeoutMs = isPixtral ? 180000 : (isMistral ? 60000 : 90000); 
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs); 
 
         try {
@@ -219,8 +217,8 @@ async function callOpenAICompatible(
                 const msg = errorData.error?.message || `API Error ${response.status}`;
                 
                 if (attempt < maxInternalRetries && (response.status >= 500 || response.status === 429)) {
-                    // Vision retries need exponential backoff with jitter for Pixtral reliability
-                    const backoffBase = isPixtral ? 6000 : 1000;
+                    // Backoff logic: Only triggers on failure. Jittered to prevent "thundering herd" errors.
+                    const backoffBase = isPixtral ? 4000 : 1000;
                     const delay = Math.pow(2, attempt) * backoffBase + (Math.random() * 1000);
                     await new Promise(r => setTimeout(r, delay));
                     continue;
@@ -233,13 +231,13 @@ async function callOpenAICompatible(
         } catch (e: any) {
             clearTimeout(timeoutId);
             if (attempt < maxInternalRetries && e.name !== 'AbortError') {
-                const backoffBase = isPixtral ? 6000 : 1000;
+                const backoffBase = isPixtral ? 4000 : 1000;
                 const delay = Math.pow(2, attempt) * backoffBase + (Math.random() * 1000);
                 await new Promise(r => setTimeout(r, delay));
                 continue;
             }
-            if (isPixtral) {
-                throw new Error("Connection failed. Please change model or try another one.");
+            if (isPixtral && attempt >= maxInternalRetries) {
+                throw new Error("Stability issue detected. The last image failed due to server load. Please retry it.");
             }
             throw e;
         }
@@ -287,7 +285,6 @@ export async function generateMetadata(base64: string, mime: string, config: App
                 });
                 rawResponse = response.text || "";
                 
-                // Final validation inside the loop to catch bad Gemini JSON (rare but possible)
                 let cleanJson = rawResponse.trim();
                 const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
                 if (jsonMatch) cleanJson = jsonMatch[0];
@@ -302,7 +299,6 @@ export async function generateMetadata(base64: string, mime: string, config: App
         }
         throw lastError || new Error("Invalid format from AI.");
     } else {
-        // Mistral / Groq Logic with dedicated Formatting Retry Loop
         const apiKey = manualApiKey || process.env.API_KEY || "";
         if (!apiKey) throw new Error("Missing API Key");
         
@@ -324,15 +320,13 @@ export async function generateMetadata(base64: string, mime: string, config: App
                 if (jsonMatch) cleanJson = jsonMatch[0];
                 
                 let parsed: Metadata = JSON.parse(cleanJson);
-                // Basic validation of fields
                 if (!parsed.title || !parsed.keywords) throw new Error("Incomplete metadata");
                 
                 return finalizeMetadata(parsed, config);
             } catch (e) {
                 lastParsingError = e;
-                // If it's a JSON/Formatting error, wait briefly and retry the AI call
                 if (attempt < maxParsingRetries - 1) {
-                    const delay = config.model === 'pixtral-12b-latest' ? 3000 : 1000;
+                    const delay = config.model === 'pixtral-12b-latest' ? 2000 : 1000;
                     await new Promise(r => setTimeout(r, delay));
                     continue;
                 }

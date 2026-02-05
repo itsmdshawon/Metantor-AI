@@ -162,12 +162,6 @@ const App: React.FC = () => {
         }
     };
 
-    /**
-     * MULTI-KEY ROTATION LOGIC:
-     * 1. Exhausts Tier 1 (internal retries on a single key).
-     * 2. If exhausted, rotates to next key in pool and shows notification.
-     * 3. Continues until all keys in pool are exhausted.
-     */
     const processFileWorker = async (fileId: string) => {
         const fileItem = filesRef.current.find(f => f.id === fileId);
         if (!fileItem) return;
@@ -184,27 +178,23 @@ const App: React.FC = () => {
             const apiKey = keysCount > 0 ? keys[keyIndex] : '';
 
             try {
+                // Functional update to ensure state consistency during high concurrency
                 setFiles(prev => prev.map(f => f.id === fileId ? { ...f, status: 'processing', errorMsg: undefined } : f));
                 const base64 = await fileToBase64(fileItem.file);
-                
-                // Tier 1: Internal retries happen inside generateMetadata
                 const metadata = await generateMetadata(base64, fileItem.file.type, configRef.current, apiKey);
 
                 if (shouldStopRef.current) break;
                 setFiles(prev => prev.map(f => f.id === fileId ? { ...f, status: 'complete', metadata } : f));
                 success = true;
             } catch (e: any) {
-                // Tier 2: Rotation trigger
                 currentKeyIndex.current++;
                 keysTriedThisTask++;
                 
                 if (keysTriedThisTask < effectivePoolSize) {
                     setRotationNotice(`Limit reached for key ${keyIndex + 1}. Rotating to next API key...`);
                     setTimeout(() => setRotationNotice(null), 4000);
-                    // Short wait before starting with new key
                     await backgroundWait(2000);
                 } else {
-                    // Truly exhausted the entire pool
                     setFiles(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', errorMsg: e.message } : f));
                 }
             }
@@ -225,18 +215,14 @@ const App: React.FC = () => {
         
         await requestWakeLock();
 
-        // CONCURRENCY SETTINGS:
-        // Text is fast (4 concurrent). 
-        // Maverick is heavy (1 concurrent).
-        // Pixtral Vision is medium-heavy (2 concurrent recommended for long batches).
+        // Speed check: High concurrency maintained for all models (4).
+        // Maverick is the only exception (1) as requested in your previous design for HQ Llama.
         let concurrency = 4;
         const isPixtral = configRef.current.model === 'pixtral-12b-latest';
         const isMaverick = configRef.current.model === 'meta-llama/llama-4-maverick-17b-128e-instruct';
         
         if (isMaverick) {
             concurrency = 1;
-        } else if (isPixtral) {
-            concurrency = 2; // Reduced for Pixtral to ensure final files in large batches don't fail.
         }
 
         const queue = [...filesRef.current.filter(f => f.status === 'pending' || f.status === 'error')];
@@ -247,14 +233,13 @@ const App: React.FC = () => {
             return;
         }
 
+        // Processing Logic: Use Promise.all with the shared queue.
         const workers = Array(Math.min(concurrency, queue.length)).fill(null).map(async (_, i) => {
-            // Stagger start slightly to avoid API "burst" limits
-            await backgroundWait(i * (isPixtral ? 1500 : 500));
+            // Stagger only the start slightly to prevent the first 4 images from hitting the API in the exact same millisecond
+            await backgroundWait(i * 250); 
             while (queue.length > 0 && !shouldStopRef.current) {
                 const item = queue.shift();
                 if (item) await processFileWorker(item.id);
-                // Tiny rest between tasks for Pixtral to cool down server connections
-                if (isPixtral && queue.length > 0) await backgroundWait(500);
             }
         });
         await Promise.all(workers);
@@ -345,7 +330,6 @@ const App: React.FC = () => {
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                 >
-                    {/* KEY ROTATION NOTIFICATION BANNER */}
                     {rotationNotice && (
                         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] animate-fadeIn">
                             <div className="bg-blue-600/90 backdrop-blur-md border border-blue-400/30 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
@@ -356,7 +340,12 @@ const App: React.FC = () => {
                     )}
 
                     <FileTable files={files} platform={config.platform} onPreview={setPreviewUrl} />
-                    <Footer onOpenPrivacy={() => setView('privacy')} onOpenContact={() => setView('contact')} onOpenTerms={() => setView('terms')} onOpenFaq={() => setView('faq')} />
+                    <Footer 
+                      onOpenPrivacy={() => setView('privacy')} 
+                      onOpenContact={() => setView('contact')} 
+                      onOpenTerms={() => setView('terms')} 
+                      onOpenFaq={() => setView('faq')} 
+                    />
                 </main>
             </div>
             
