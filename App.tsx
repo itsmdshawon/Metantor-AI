@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import Header from './components/Header';
 import Sidebar from './Sidebar';
@@ -224,9 +225,18 @@ const App: React.FC = () => {
         
         await requestWakeLock();
 
+        // CONCURRENCY SETTINGS:
+        // Text is fast (4 concurrent). 
+        // Maverick is heavy (1 concurrent).
+        // Pixtral Vision is medium-heavy (2 concurrent recommended for long batches).
         let concurrency = 4;
-        if (configRef.current.model === 'meta-llama/llama-4-maverick-17b-128e-instruct') {
+        const isPixtral = configRef.current.model === 'pixtral-12b-latest';
+        const isMaverick = configRef.current.model === 'meta-llama/llama-4-maverick-17b-128e-instruct';
+        
+        if (isMaverick) {
             concurrency = 1;
+        } else if (isPixtral) {
+            concurrency = 2; // Reduced for Pixtral to ensure final files in large batches don't fail.
         }
 
         const queue = [...filesRef.current.filter(f => f.status === 'pending' || f.status === 'error')];
@@ -238,10 +248,13 @@ const App: React.FC = () => {
         }
 
         const workers = Array(Math.min(concurrency, queue.length)).fill(null).map(async (_, i) => {
-            await backgroundWait(i * 500);
+            // Stagger start slightly to avoid API "burst" limits
+            await backgroundWait(i * (isPixtral ? 1500 : 500));
             while (queue.length > 0 && !shouldStopRef.current) {
                 const item = queue.shift();
                 if (item) await processFileWorker(item.id);
+                // Tiny rest between tasks for Pixtral to cool down server connections
+                if (isPixtral && queue.length > 0) await backgroundWait(500);
             }
         });
         await Promise.all(workers);

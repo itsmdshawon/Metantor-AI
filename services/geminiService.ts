@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AppConfig, Metadata } from "../types";
 import { ADOBE_CATEGORIES, SHUTTERSTOCK_CATEGORIES, VECTORSTOCK_CATEGORIES } from "../constants";
@@ -186,7 +187,8 @@ async function callOpenAICompatible(
 
     for (let attempt = 0; attempt <= maxInternalRetries; attempt++) {
         const controller = new AbortController();
-        const timeoutMs = isPixtral ? 120000 : (isMistral ? 60000 : 90000);
+        // Pixtral Vision needs a much longer timeout (180s) for batch processing reliability
+        const timeoutMs = isPixtral ? 180000 : (isMistral ? 60000 : 90000);
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs); 
 
         try {
@@ -217,7 +219,9 @@ async function callOpenAICompatible(
                 const msg = errorData.error?.message || `API Error ${response.status}`;
                 
                 if (attempt < maxInternalRetries && (response.status >= 500 || response.status === 429)) {
-                    const delay = isPixtral ? 4000 : Math.pow(2, attempt) * 1000;
+                    // Vision retries need exponential backoff with jitter for Pixtral reliability
+                    const backoffBase = isPixtral ? 6000 : 1000;
+                    const delay = Math.pow(2, attempt) * backoffBase + (Math.random() * 1000);
                     await new Promise(r => setTimeout(r, delay));
                     continue;
                 }
@@ -229,7 +233,8 @@ async function callOpenAICompatible(
         } catch (e: any) {
             clearTimeout(timeoutId);
             if (attempt < maxInternalRetries && e.name !== 'AbortError') {
-                const delay = isPixtral ? 4000 : Math.pow(2, attempt) * 1000;
+                const backoffBase = isPixtral ? 6000 : 1000;
+                const delay = Math.pow(2, attempt) * backoffBase + (Math.random() * 1000);
                 await new Promise(r => setTimeout(r, delay));
                 continue;
             }
