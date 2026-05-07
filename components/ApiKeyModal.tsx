@@ -42,6 +42,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             case 'Google Gemini': return { url: 'https://aistudio.google.com/app/apikey', label: 'Get Free Gemini API Keys' };
             case 'Groq Cloud': return { url: 'https://console.groq.com/keys', label: 'Get Free Groq API Keys' };
             case 'Mistral AI': return { url: 'https://console.mistral.ai/api-keys/', label: 'Get Free Mistral API Keys' };
+            case 'OpenRouter': return { url: 'https://openrouter.ai/keys', label: 'Get Free OpenRouter API Keys' };
             default: return { url: '#', label: 'Get API Key' };
         }
     }
