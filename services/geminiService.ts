@@ -174,6 +174,7 @@ async function callOpenAICompatible(
     prompt: string
 ): Promise<string> {
     const isMistral = endpoint.includes('mistral');
+    const isGroq = endpoint.includes('groq');
     const isPixtral = model === 'pixtral-12b-latest';
     
     const maxInternalRetries = isPixtral ? 10 : 5; 
@@ -195,10 +196,21 @@ async function callOpenAICompatible(
                 }
             ];
 
+            const body: any = { 
+                model, 
+                messages, 
+                temperature: 0.1, 
+                max_tokens: 1000, 
+                stream: false 
+            };
+            if (isGroq || isMistral) {
+                body.response_format = { type: "json_object" };
+            }
+
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 1000, stream: false }),
+                body: JSON.stringify(body),
                 signal: controller.signal
             });
 
@@ -242,8 +254,8 @@ export async function generateMetadata(base64: string, mime: string, config: App
     let rawResponse = "";
 
     if (config.provider === 'Google Gemini') {
-        const apiKey = manualApiKey || import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
-        if (!apiKey) throw new Error("Missing Gemini API Key. Please provide one in settings or environment.");
+        const apiKey = manualApiKey;
+        if (!apiKey) throw new Error("Missing Gemini API Key. Please add your own API key in settings to process files.");
         const ai = new GoogleGenAI({ apiKey });
         
         let lastError: any = null;
@@ -292,19 +304,16 @@ export async function generateMetadata(base64: string, mime: string, config: App
         }
         throw lastError || new Error("Invalid format from AI.");
     } else {
-        const envKey = config.provider === 'Groq Cloud' 
-            ? (import.meta.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY)
-            : (import.meta.env.VITE_MISTRAL_API_KEY || process.env.MISTRAL_API_KEY);
-            
-        const apiKey = manualApiKey || envKey || process.env.API_KEY || "";
-        if (!apiKey) throw new Error(`Missing ${config.provider} API Key`);
+        const apiKey = manualApiKey;
+        if (!apiKey) throw new Error(`Missing ${config.provider} API Key. Please add your own API key in settings.`);
         
         const endpoints: Record<string, string> = {
             'Groq Cloud': "https://api.groq.com/openai/v1/chat/completions",
             'Mistral AI': "https://api.mistral.ai/v1/chat/completions"
         };
         
-        const maxParsingRetries = config.model === 'pixtral-12b-latest' ? 5 : 3;
+        const isHighLoad = config.model.includes('90b') || config.model.includes('large') || config.model === 'pixtral-12b-latest';
+        const maxParsingRetries = isHighLoad ? 5 : 3;
         let lastParsingError: any = null;
 
         for (let attempt = 0; attempt < maxParsingRetries; attempt++) {

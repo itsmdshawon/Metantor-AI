@@ -187,14 +187,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                             >
                                 <div className="flex items-center gap-3">
                                     <div className={`w-2 h-2 rounded-full ${
-                                        (apiKeysCount > 0 || config.provider === 'Google Gemini') 
+                                        apiKeysCount > 0 
                                         ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' 
                                         : 'bg-red-500'
                                     }`}></div>
                                     <span className="text-xs font-bold text-slate-300">
-                                        {apiKeysCount > 0 
-                                            ? `${apiKeysCount} Keys` 
-                                            : (config.provider === 'Google Gemini' ? 'System Key Active' : '0 Keys')}
+                                        {apiKeysCount} Keys
                                     </span>
                                 </div>
                                 <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest group-hover:translate-x-1 transition-transform">Manage</span>
