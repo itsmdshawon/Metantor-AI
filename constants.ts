@@ -45,7 +45,8 @@ export const AI_PROVIDERS: Record<string, ModelOption[]> = {
     ],
     'Groq Cloud': [
         { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout Fast' },
-        { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick HQ' }
+        { id: 'llama-3.2-11b-vision-preview', name: 'Llama 3.2 11B Vision' },
+        { id: 'llama-3.2-90b-vision-preview', name: 'Llama 3.2 90B Vision' }
     ],
     'Mistral AI': [
         { id: 'pixtral-12b-latest', name: 'Pixtral 12B Vision' }

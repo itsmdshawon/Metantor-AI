@@ -216,15 +216,8 @@ const App: React.FC = () => {
         await requestWakeLock();
 
         // Speed check: High concurrency maintained for all models (4).
-        // Maverick is the only exception (1) as requested in your previous design for HQ Llama.
         let concurrency = 4;
-        const isPixtral = configRef.current.model === 'pixtral-12b-latest';
-        const isMaverick = configRef.current.model === 'meta-llama/llama-4-maverick-17b-128e-instruct';
         
-        if (isMaverick) {
-            concurrency = 1;
-        }
-
         const queue = [...filesRef.current.filter(f => f.status === 'pending' || f.status === 'error')];
         if (queue.length === 0) {
             setIsProcessing(false);
