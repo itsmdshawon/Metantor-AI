@@ -216,12 +216,11 @@ const App: React.FC = () => {
         await requestWakeLock();
 
         // Speed check: High concurrency maintained for all models (4).
-        // Unified Vision 90B (Maverick) restricted to 1 for maximum API reliability.
+        // Pixtral Large restricted to 1 for maximum API reliability.
         let concurrency = 4;
-        const isMaverick = configRef.current.model === 'meta-llama/llama-4-90b-vision-instruct';
         const isPixtralLarge = configRef.current.model === 'pixtral-large-latest';
         
-        if (isMaverick || isPixtralLarge) {
+        if (isPixtralLarge) {
             concurrency = 1;
         }
         

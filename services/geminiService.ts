@@ -312,7 +312,7 @@ export async function generateMetadata(base64: string, mime: string, config: App
             'Mistral AI': "https://api.mistral.ai/v1/chat/completions"
         };
         
-        const isHighLoad = config.model.includes('90b') || config.model.includes('large') || config.model === 'pixtral-12b-latest';
+        const isHighLoad = config.model.includes('large') || config.model === 'pixtral-12b-latest';
         const maxParsingRetries = isHighLoad ? 5 : 3;
         let lastParsingError: any = null;
 

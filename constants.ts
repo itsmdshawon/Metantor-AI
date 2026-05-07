@@ -44,9 +44,7 @@ export const AI_PROVIDERS: Record<string, ModelOption[]> = {
         { id: 'gemini-flash-lite-latest', name: 'Gemini 2.5 Flash Lite (Fast)', tier: 'Free' }
     ],
     'Groq Cloud': [
-        { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout Fast' },
-        { id: 'meta-llama/llama-4-11b-vision-instruct', name: 'Llama 4 Vision 11B' },
-        { id: 'meta-llama/llama-4-90b-vision-instruct', name: 'Llama 4 Vision 90B' }
+        { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout Fast' }
     ],
     'Mistral AI': [
         { id: 'pixtral-12b-latest', name: 'Pixtral 12B Vision' },
