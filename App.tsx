@@ -44,11 +44,21 @@ const App: React.FC = () => {
     const [view, setView] = useState<'app' | 'privacy' | 'contact' | 'terms' | 'faq'>('app');
 
     const [providerKeys, setProviderKeys] = useState<Record<AiProvider, string[]>>(() => {
+        const defaults = { 
+            'Google Gemini': [], 
+            'Groq Cloud': [], 
+            'Mistral AI': [], 
+            'OpenRouter': [] 
+        };
         try {
             const stored = localStorage.getItem('metantor_provider_keys');
-            if (stored) return JSON.parse(stored);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Merge parsed with defaults to handle new providers
+                return { ...defaults, ...parsed };
+            }
         } catch (e) { }
-        return { 'Google Gemini': [], 'Groq Cloud': [], 'Mistral AI': [], 'OpenRouter': [] };
+        return defaults;
     });
 
     const [files, setFiles] = useState<FileItem[]>([]);
