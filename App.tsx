@@ -44,7 +44,7 @@ const App: React.FC = () => {
     const [view, setView] = useState<'app' | 'privacy' | 'contact' | 'terms' | 'faq'>('app');
 
     const [providerKeys, setProviderKeys] = useState<Record<AiProvider, string[]>>(() => {
-        const defaults = { 
+        const defaults: Record<AiProvider, string[]> = { 
             'Google Gemini': [], 
             'Groq Cloud': [], 
             'Mistral AI': [] 
@@ -53,8 +53,12 @@ const App: React.FC = () => {
             const stored = localStorage.getItem('metantor_provider_keys');
             if (stored) {
                 const parsed = JSON.parse(stored);
-                // Merge parsed with defaults to handle new providers
-                return { ...defaults, ...parsed };
+                // Only keep keys for valid providers
+                return {
+                    'Google Gemini': Array.isArray(parsed['Google Gemini']) ? parsed['Google Gemini'] : [],
+                    'Groq Cloud': Array.isArray(parsed['Groq Cloud']) ? parsed['Groq Cloud'] : [],
+                    'Mistral AI': Array.isArray(parsed['Mistral AI']) ? parsed['Mistral AI'] : []
+                };
             }
         } catch (e) { }
         return defaults;
@@ -62,15 +66,7 @@ const App: React.FC = () => {
 
     const [files, setFiles] = useState<FileItem[]>([]);
     const [config, setConfig] = useState<AppConfig>(() => {
-        try {
-            const stored = localStorage.getItem('metantor_app_config');
-            if (stored) {
-              const parsed = JSON.parse(stored);
-              if ((parsed as any).speedMode) delete (parsed as any).speedMode;
-              return parsed;
-            }
-        } catch (e) {}
-        return {
+        const defaultConfig: AppConfig = {
             titleLen: 12,
             descLen: 25,
             kwCount: 40,
@@ -89,6 +85,21 @@ const App: React.FC = () => {
             negativeKeywordsActive: false,
             negativeKeywordsWords: ''
         };
+
+        try {
+            const stored = localStorage.getItem('metantor_app_config');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              // Reliability fix: Validate provider exists
+              if (!['Google Gemini', 'Groq Cloud', 'Mistral AI'].includes(parsed.provider)) {
+                  parsed.provider = 'Google Gemini';
+                  parsed.model = 'gemini-3-flash-preview';
+              }
+              if ((parsed as any).speedMode) delete (parsed as any).speedMode;
+              return { ...defaultConfig, ...parsed };
+            }
+        } catch (e) {}
+        return defaultConfig;
     });
 
     const [isProcessing, setIsProcessing] = useState(false);
