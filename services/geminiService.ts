@@ -176,14 +176,13 @@ async function callOpenAICompatible(
     const isMistral = endpoint.includes('mistral');
     const isGroq = endpoint.includes('groq');
     const isPixtral = model.includes('pixtral-12b');
-    const isOpenRouter = endpoint.includes('openrouter');
     
-    const maxInternalRetries = (isPixtral || isOpenRouter) ? 10 : 5; 
+    const maxInternalRetries = isPixtral ? 10 : 5; 
     
     for (let attempt = 0; attempt <= maxInternalRetries; attempt++) {
         const controller = new AbortController();
-        // Reliability fix: 180s timeout specifically for deep vision tasks.
-        const timeoutMs = (isPixtral || isOpenRouter) ? 180000 : (isMistral ? 60000 : 90000); 
+        // Reliability fix: 180s timeout specifically for Pixtral processing deep vision tasks.
+        const timeoutMs = isPixtral ? 180000 : (isMistral ? 60000 : 90000); 
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs); 
 
         try {
@@ -204,25 +203,16 @@ async function callOpenAICompatible(
                 max_tokens: 1000, 
                 stream: false 
             };
-            // JSON mode is often unsupported by various OpenRouter free models/providers
-            // and can cause 400 errors. We rely on text-based prompt + robust parsing instead.
             if (isGroq || isMistral) {
                 body.response_format = { type: "json_object" };
             }
 
-            const headers: Record<string, string> = { 
-                "Authorization": `Bearer ${apiKey}`, 
-                "Content-Type": "application/json" 
-            };
-
-            if (isOpenRouter) {
-                headers["HTTP-Referer"] = window.location.origin || "https://ais-build.com";
-                headers["X-Title"] = "MetaAntor Vision Tool";
-            }
-
             const response = await fetch(endpoint, {
                 method: "POST",
-                headers,
+                headers: { 
+                    "Authorization": `Bearer ${apiKey}`, 
+                    "Content-Type": "application/json" 
+                },
                 body: JSON.stringify(body),
                 signal: controller.signal
             });
@@ -322,11 +312,10 @@ export async function generateMetadata(base64: string, mime: string, config: App
         
         const endpoints: Record<string, string> = {
             'Groq Cloud': "https://api.groq.com/openai/v1/chat/completions",
-            'Mistral AI': "https://api.mistral.ai/v1/chat/completions",
-            'OpenRouter': "https://openrouter.ai/api/v1/chat/completions"
+            'Mistral AI': "https://api.mistral.ai/v1/chat/completions"
         };
         
-        const isHighLoad = config.model.includes('large') || config.model.includes('pixtral') || config.model.includes('90b') || config.provider === 'OpenRouter';
+        const isHighLoad = config.model.includes('large') || config.model.includes('pixtral') || config.model.includes('90b');
         const maxParsingRetries = isHighLoad ? 5 : 3;
         let lastParsingError: any = null;
 

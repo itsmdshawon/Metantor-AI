@@ -47,8 +47,7 @@ const App: React.FC = () => {
         const defaults = { 
             'Google Gemini': [], 
             'Groq Cloud': [], 
-            'Mistral AI': [], 
-            'OpenRouter': [] 
+            'Mistral AI': [] 
         };
         try {
             const stored = localStorage.getItem('metantor_provider_keys');
@@ -226,12 +225,11 @@ const App: React.FC = () => {
         await requestWakeLock();
 
         // Speed check: High concurrency maintained for all models (4).
-        // Pixtral Large and OpenRouter free models restricted to 1 for maximum API reliability.
+        // Pixtral Large restricted to 1 for maximum API reliability.
         let concurrency = 4;
         const isPixtralLarge = configRef.current.model === 'pixtral-large-latest';
-        const isOpenRouterFree = configRef.current.provider === 'OpenRouter';
         
-        if (isPixtralLarge || isOpenRouterFree) {
+        if (isPixtralLarge) {
             concurrency = 1;
         }
         

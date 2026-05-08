@@ -1,7 +1,7 @@
 
 export type Platform = 'General' | 'Adobe Stock' | 'Shutterstock' | 'Vecteezy' | 'VectorStock';
 
-export type AiProvider = 'Google Gemini' | 'Groq Cloud' | 'Mistral AI' | 'OpenRouter';
+export type AiProvider = 'Google Gemini' | 'Groq Cloud' | 'Mistral AI';
 
 export interface Metadata {
     title: string;

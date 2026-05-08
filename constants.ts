@@ -49,13 +49,5 @@ export const AI_PROVIDERS: Record<string, ModelOption[]> = {
     'Mistral AI': [
         { id: 'pixtral-12b-latest', name: 'Pixtral 12B Vision' },
         { id: 'pixtral-large-latest', name: 'Pixtral Large Vision' }
-    ],
-    'OpenRouter': [
-        { id: 'google/gemini-2.0-flash-001:free', name: 'Gemini 2.0 Flash (Free)', tier: 'Free' },
-        { id: 'google/gemini-pro-1.5:free', name: 'Gemini 1.5 Pro (Free)', tier: 'Free' },
-        { id: 'mistralai/pixtral-12b:free', name: 'Pixtral 12B (Free)', tier: 'Free' },
-        { id: 'meta-llama/llama-3.2-11b-vision-instruct:free', name: 'Llama 3.2 Vision 11B (Free)', tier: 'Free' },
-        { id: 'meta-llama/llama-3.2-90b-vision-instruct:free', name: 'Llama 3.2 Vision 90B (Free)', tier: 'Free' },
-        { id: 'qwen/qwen-2-vl-72b-instruct:free', name: 'Qwen2 VL 72B (Free)', tier: 'Free' }
     ]
 };
