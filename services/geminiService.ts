@@ -204,7 +204,9 @@ async function callOpenAICompatible(
                 max_tokens: 1000, 
                 stream: false 
             };
-            if (isGroq || isMistral || (isOpenRouter && !model.includes('gemini'))) {
+            // JSON mode is often unsupported by various OpenRouter free models/providers
+            // and can cause 400 errors. We rely on text-based prompt + robust parsing instead.
+            if (isGroq || isMistral) {
                 body.response_format = { type: "json_object" };
             }
 
@@ -214,7 +216,7 @@ async function callOpenAICompatible(
             };
 
             if (isOpenRouter) {
-                headers["HTTP-Referer"] = window.location.origin;
+                headers["HTTP-Referer"] = window.location.origin || "https://ais-build.com";
                 headers["X-Title"] = "MetaAntor Vision Tool";
             }
 
